@@ -18,10 +18,16 @@ MEDIA_FILENAMES = {
 IMAGE_QUALITY = (
     "あなたは読者心理と購買行動を熟知したプロのマーケティングコンサルタントであり、"
     "広告・出版分野で経験豊富なプロのイラストレーターです。マーケティング視点で情報の優先順位と視線誘導を設計し、"
-    "細部まで丁寧で求心力のある高品質な商用イラストを制作する。"
+    "細部まで丁寧で、ひと目で内容に興味を持てる高品質な商用イラストを制作する。"
+    "画面全体は明るいハイキー照明を基本に、白・アイボリー・明るいパステルカラーを土台とし、"
+    "内容に合う鮮やかなアクセントカラーを加える。自然光が差し込むような透明感、清潔感、前向きさ、"
+    "温かさ、親しみやすさを表現し、スマートフォンの小さな画面でも主役と要点がすぐ分かる色彩設計にする。"
     "読者の感情が伝わる自然な表情と仕草、正確な人体、丁寧な手指、内容に合う背景と小物、柔らかな自然光、"
     "奥行きと質感、清潔感・信頼感・親しみやすさを備えた現代的な日本の雑誌広告風。"
+    "記事の内容に応じて、人物の年代・服装・姿勢・動作・表情、場所、季節、道具、小物を具体的に描き分ける。"
+    "複数画像では同じ構図や同じポーズを使い回さず、各画像の要点がイラストだけでも伝わる場面にする。"
     "安価な素材集風、幼すぎる絵、棒人間、平面的で単調な構図、不自然な手指、過剰な医療表現、"
+    "暗い画面、くすんだ灰色一色、濁った配色、重苦しい雰囲気、恐怖をあおる表情、情報と無関係な飾り、"
     "実在ロゴ、著名キャラクター、特定作家の画風、透かし、意味不明な文字を使用しない。"
 )
 
@@ -127,7 +133,11 @@ def _normalize_plan(data: dict, article: str) -> dict:
         slides.append({
             "title": source.get("heading", "まとめ" if len(slides) == 8 else f"ポイント{len(slides) + 1}"),
             "body": source.get("summary", "記事の要点を分かりやすく確認しましょう。")[:80],
-            "visual": "learning",
+            "visual": (
+                f"『{source.get('heading', '記事のポイント')}』の要点を、"
+                f"{source.get('summary', '読者が内容を理解して前向きに行動する様子')}に合う"
+                "人物・表情・動作・背景・小物で具体的に表現する"
+            ),
         })
     carousel["slides"] = slides[:9]
     return data
@@ -175,6 +185,7 @@ def _video_prompt_item(
     filename: str,
     vertical: bool,
     brand_name: str,
+    article_summary: str = "",
 ) -> dict:
     scene_lines = []
     for index, raw_scene in enumerate(plan_item.get("scenes", []), 1):
@@ -202,6 +213,8 @@ def _video_prompt_item(
         "各フレームを映像表示エリアとテロップ専用エリアへ完全分離する。"
         "あなたは読者心理と視聴維持を熟知したプロのマーケティングコンサルタントであり、"
         "プロのイラストレーター兼映像ディレクターである。情報の優先順位と視線誘導を設計した、求心力のある高品質なイラスト動画を制作する。"
+        f"動画全体で伝える記事の要約は『{_plain_text(article_summary, 500)}』。"
+        "動画はこの要約の重要点を順番に理解できるミニストーリーとして構成し、記事と無関係な一般映像で埋めない。"
         f"出力は{size}、長さは{duration}。{layout}。全フレームで境界を固定し、文字・帯・字幕を映像領域へ越境させない。"
         "再生開始0.0秒の最初のフレームから、完成した表紙イラストと短いキャッチコピーを明るく鮮明に表示する。"
         "冒頭の黒画面、空白画面、無地背景、読み込み待ち、暗転、黒からのフェードインを一切入れない。"
@@ -210,6 +223,9 @@ def _video_prompt_item(
         "下部の補足（サブテキスト）のフォントサイズは、上部の見出し（メインテキスト）の約80％に統一する。"
         f"すべての画面テキストは日本語にする。{TEXT_LAYOUT_RULES}"
         f"場面構成：{scene_script} "
+        "各シーンは直前とは異なる構図・人物の動作・表情・背景・小物を使い、記事の別の要点を視覚化する。"
+        "すべての場面を明るいハイキー照明、透明感のあるパステルカラー、内容に合う鮮やかなアクセントカラーで統一する。"
+        "暗い、くすんだ、重苦しい、無関係な汎用映像、同じ場面の使い回しは禁止する。"
         "人の声、音声ナレーション、読み上げ音声、会話音声は一切入れない。元のnarration欄の文章はすべて画面テロップとして使用する。"
         "テロップ本文は、パソコンやスマートフォンで文字を入力しているように、左から右へ1文字ずつ現れるタイピング演出にする。"
         "1文字の表示間隔は0.04〜0.07秒を目安とし、1行を打ち終えた後は1.5〜2秒読める状態で保持する。点滅カーソルは控えめにし、読みにくい高速表示は禁止する。"
@@ -243,17 +259,21 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
     horizontal = "左側35％をテキスト専用、右側65％をイラスト専用とする左右分割。背景色と余白で境界を明確にする"
     square = "上部25％を見出し、中央55％をイラスト、下部20％を補足専用カードとして3領域を完全分離する"
     vertical = "上部20％を見出し、中央60％をイラスト、下部5％を補足、残り15％を操作UI用安全余白として固定する"
+    article_summary = _plain_text(article, 1200)
+    reel_cover_visual = (reel.get("scenes") or [{}])[0].get("visual", "")
+    youtube_cover_visual = (youtube.get("scenes") or [{}])[0].get("visual", "")
+    tiktok_cover_visual = (tiktok.get("scenes") or [{}])[0].get("visual", "")
     prompts = {
-        "x_image": _image_prompt_item(x_data.get("title", ""), x_data.get("body", ""), "1200×675", horizontal, "太めゴシック。見出し56〜72px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["x_image"]),
-        "facebook_eyecatch": _image_prompt_item(facebook.get("image_title", ""), facebook.get("image_body", ""), "1200×630", horizontal, "太めゴシック。見出し56〜72px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["facebook_eyecatch"]),
-        "gbp_image": _image_prompt_item(gbp.get("image_title", ""), gbp.get("image_body", ""), "1200×900", horizontal, "太めゴシック。見出し64〜82px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["gbp_image"]),
-        "threads_image": _image_prompt_item(threads.get("image_title", ""), threads.get("image_body", ""), "1080×1080", square, "太めゴシック。見出し64〜80px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["threads_image"]),
-        "reel_cover": _image_prompt_item(reel.get("cover_title", ""), reel.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["reel_cover"]),
-        "youtube_thumbnail": _image_prompt_item(youtube.get("thumbnail_title", ""), youtube.get("thumbnail_body", ""), "1280×720", horizontal, "太めゴシック。見出し80〜110px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["youtube_thumbnail"]),
-        "tiktok_cover": _image_prompt_item(tiktok.get("cover_title", ""), tiktok.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["tiktok_cover"]),
-        "reel_video": _video_prompt_item(reel, "1080×1920", "40〜45秒", MEDIA_FILENAMES["reel_video"], True, brand_name),
-        "youtube_video": _video_prompt_item(youtube, "1920×1080", "40〜45秒", MEDIA_FILENAMES["youtube_video"], False, brand_name),
-        "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "40〜45秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name),
+        "x_image": _image_prompt_item(x_data.get("title", ""), x_data.get("body", ""), "1200×675", horizontal, "太めゴシック。見出し56〜72px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["x_image"], x_data.get("visual", "")),
+        "facebook_eyecatch": _image_prompt_item(facebook.get("image_title", ""), facebook.get("image_body", ""), "1200×630", horizontal, "太めゴシック。見出し56〜72px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["facebook_eyecatch"], facebook.get("visual", "")),
+        "gbp_image": _image_prompt_item(gbp.get("image_title", ""), gbp.get("image_body", ""), "1200×900", horizontal, "太めゴシック。見出し64〜82px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["gbp_image"], gbp.get("visual", "")),
+        "threads_image": _image_prompt_item(threads.get("image_title", ""), threads.get("image_body", ""), "1080×1080", square, "太めゴシック。見出し64〜80px、補足は見出しの約80％、行間1.25〜1.4倍", MEDIA_FILENAMES["threads_image"], threads.get("visual", "")),
+        "reel_cover": _image_prompt_item(reel.get("cover_title", ""), reel.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["reel_cover"], reel_cover_visual),
+        "youtube_thumbnail": _image_prompt_item(youtube.get("thumbnail_title", ""), youtube.get("thumbnail_body", ""), "1280×720", horizontal, "太めゴシック。見出し80〜110px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["youtube_thumbnail"], youtube_cover_visual),
+        "tiktok_cover": _image_prompt_item(tiktok.get("cover_title", ""), tiktok.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["tiktok_cover"], tiktok_cover_visual),
+        "reel_video": _video_prompt_item(reel, "1080×1920", "40〜45秒", MEDIA_FILENAMES["reel_video"], True, brand_name, article_summary),
+        "youtube_video": _video_prompt_item(youtube, "1920×1080", "40〜45秒", MEDIA_FILENAMES["youtube_video"], False, brand_name, article_summary),
+        "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "40〜45秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name, article_summary),
     }
     prompts["instagram_carousel"] = []
     for index, slide in enumerate(plan.get("carousel", {}).get("slides", [])[:9], 1):
@@ -262,6 +282,7 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
             "上部18％を見出し、中央57％をイラスト、下部25％を説明カードとして固定し、3領域を完全分離する",
             "太めゴシック。大見出し64〜80px、説明は大見出しの約80％、最大4行、行間1.25〜1.4倍",
             f"Instagram_カルーセル_{index:02d}.png",
+            slide.get("visual", ""),
         )
         item["slide"] = index
         prompts["instagram_carousel"].append(item)
@@ -316,14 +337,23 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 厳格な条件：
 - 記事にない数値、実績、料金、資格、口コミ、効果、人物、店舗情報、研究結果を追加しない
 - 医療・健康情報を断定しない
+- 出力前に記事全体を内部で要約し、「悩み・原因や背景・重要ポイント・具体策・注意点・まとめ」に整理する
+- 投稿文、カルーセル、動画は、記事の一部分だけでなく重要内容の全体像が順番に分かる構成にする
 - 同じ文章を使い回さず、媒体ごとに最適化する
 - ハッシュタグは文字列配列にする
 - カルーセルは必ず9枚。1枚目は表紙、9枚目はまとめ・自然な行動喚起
+- カルーセルは、1枚目＝興味を引く表紙、2枚目＝読者の悩み、3〜7枚目＝記事の重要ポイント、8枚目＝具体的な行動や注意点、9枚目＝まとめと自然な行動喚起の流れにする
+- カルーセル各枚のvisualは、そのスライドのtitleとbodyの意味を一目で理解できる具体的な一場面にする
+- 各スライドで同じ人物の同じポーズや同じ背景を繰り返さず、表情・動作・視点・背景・小物を内容に合わせて変える
 - リール、TikTok、YouTubeはいずれも40〜45秒程度。各動画は5〜7シーン、1シーン4〜6秒を目安にする
+- 動画は記事の重要ポイントを5〜7シーンで要約し、「関心を引く→悩みに共感→理解を深める→具体策→注意点→前向きなまとめ」の流れにする
+- 動画各シーンのvisualは、そのシーンのcaptionとnarrationを具体的に表す人物・表情・動作・背景・小物を指定し、無関係な汎用映像を使わない
+- 全画像・全動画を、明るい自然光、透明感のあるパステルカラー、内容に合う鮮やかなアクセントカラー、前向きで親しみやすい雰囲気にする
+- 暗い画面、濁った色、灰色一色、重苦しい表情、恐怖をあおる演出、幼すぎるイラストは禁止する
 - 人の声や音声ナレーションは使用しない。narration欄には、動画内でタイピング風に表示する日本語テロップ本文を入れる
 - テロップ本文は1シーンで読み切れる45文字以内の短文にし、見出しと同じ文章を繰り返さない
 - テロップ間の空白を最大0.2秒にできる構成とし、不要な間や長い余韻を作らない
-- 動画のcaptionは上部に表示する短い場面見出し、narrationは読み上げる自然な文章
+- 動画のcaptionは上部に表示する短い場面見出し、narrationは音声にせず下部へ表示する自然な日本語テロップ
 - 上部見出しと下部テロップへ同じ文章を重複させない
 - 画面テキストは日本語の文節と意味のまとまりで自然に改行できる長さにする。単語途中の分割、助詞・句読点の行頭、1文字だけの行を避ける
 - 改行後は各行の見た目の長さが近くなり、中央揃えで視覚的な重心が偏らない短文にする
