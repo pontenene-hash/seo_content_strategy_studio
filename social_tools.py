@@ -140,6 +140,26 @@ def _normalize_plan(data: dict, article: str) -> dict:
             ),
         })
     carousel["slides"] = slides[:9]
+    # 記事をまとめたカルーセル9枚を、そのまま動画の絵コンテとして再利用する。
+    video_scenes = []
+    for index, slide in enumerate(carousel["slides"], 1):
+        slide = slide if isinstance(slide, dict) else {}
+        video_scenes.append({
+            "caption": _plain_text(slide.get("title", f"ポイント{index}"), 22),
+            "narration": _plain_text(slide.get("body", ""), 60),
+            "visual": _plain_text(
+                slide.get("visual")
+                or f"カルーセル{index}枚目の要点を表す明るいイラスト",
+                160,
+            ),
+            "source_image": f"Instagram_カルーセル_{index:02d}.png",
+        })
+    for video_key in ("reel", "youtube", "tiktok"):
+        video = data.setdefault(video_key, {})
+        if not isinstance(video, dict):
+            video = {}
+            data[video_key] = video
+        video["scenes"] = [dict(scene) for scene in video_scenes]
     return data
 
 
@@ -193,10 +213,16 @@ def _video_prompt_item(
         heading = _plain_text(scene.get("caption", ""), 22)
         telop_text = _plain_text(scene.get("narration", ""), 120)
         visual = _plain_text(scene.get("visual") or scene.get("direction", ""), 100)
+        source_image = _plain_text(
+            scene.get("source_image") or f"Instagram_カルーセル_{index:02d}.png",
+            60,
+        )
         scene_lines.append(
-            f"シーン{index}（4〜6秒を目安）：上部見出し『{heading}』。"
-            f"音声にせずタイピング風に表示するテロップ本文『{telop_text}』。"
-            f"映像は『{visual or telop_text}』を表す具体的な人物・表情・動作・背景・小物。"
+            f"シーン{index}（{source_image}を5〜6秒表示）：上部見出し『{heading}』。"
+            f"説明カードの文章『{telop_text}』は音声にせず、元画像と同じ位置でタイピング風に表示する。"
+            "同じ見出しや説明文を別の場所へ重複表示しない。"
+            f"元画像のイラストは『{visual or telop_text}』を表す具体的な人物・表情・動作・背景・小物。"
+            "元画像のデザインと文字を保ち、ゆっくりしたズーム、パン、光、人物や小物のごく自然な微動だけを加える。"
         )
     scene_script = " ".join(scene_lines)
     if vertical:
@@ -215,15 +241,20 @@ def _video_prompt_item(
         "プロのイラストレーター兼映像ディレクターである。情報の優先順位と視線誘導を設計した、求心力のある高品質なイラスト動画を制作する。"
         f"動画全体で伝える記事の要約は『{_plain_text(article_summary, 500)}』。"
         "動画はこの要約の重要点を順番に理解できるミニストーリーとして構成し、記事と無関係な一般映像で埋めない。"
+        "入力素材としてInstagram_カルーセル_01.pngからInstagram_カルーセル_09.pngまでの9枚を使用する。"
+        "9枚を01→09の順番で並べ替えずに使い、画像の内容・イラスト・見出し・説明を動画の中心にする。"
+        "カルーセルと別の内容や別の結論を作らず、この9枚で記事の内容を要約した一本の動画にする。"
+        "画像内の見出しは所定位置を維持し、説明文は同じ説明カード内でタイピング表示する。"
+        "元画像に文字が焼き込まれていてタイピング化できない場合は、追加テロップを重ねず、その画像を読みやすい時間そのまま表示する。"
         f"出力は{size}、長さは{duration}。{layout}。全フレームで境界を固定し、文字・帯・字幕を映像領域へ越境させない。"
         "再生開始0.0秒の最初のフレームから、完成した表紙イラストと短いキャッチコピーを明るく鮮明に表示する。"
         "冒頭の黒画面、空白画面、無地背景、読み込み待ち、暗転、黒からのフェードインを一切入れない。"
-        "表紙は3.5〜4秒間表示する。最初の0.5秒以内に完成した表紙を表示し、視聴者がキャッチコピーとイラストを落ち着いて読める時間を確保する。"
+        "1枚目の表紙は5〜6秒間表示する。最初の0.5秒以内に完成した表紙を表示し、視聴者がキャッチコピーとイラストを落ち着いて読める時間を確保する。"
         f"{font_spec}。上部は場面見出し、下部は具体的な補足説明とし、同じ文章を上下へ重複表示しない。"
         "下部の補足（サブテキスト）のフォントサイズは、上部の見出し（メインテキスト）の約80％に統一する。"
         f"すべての画面テキストは日本語にする。{TEXT_LAYOUT_RULES}"
         f"場面構成：{scene_script} "
-        "各シーンは直前とは異なる構図・人物の動作・表情・背景・小物を使い、記事の別の要点を視覚化する。"
+        "各シーンは対応するカルーセル画像の構図・人物・表情・背景・小物を維持し、記事の別の要点を視覚化する。"
         "すべての場面を明るいハイキー照明、透明感のあるパステルカラー、内容に合う鮮やかなアクセントカラーで統一する。"
         "暗い、くすんだ、重苦しい、無関係な汎用映像、同じ場面の使い回しは禁止する。"
         "人の声、音声ナレーション、読み上げ音声、会話音声は一切入れない。元のnarration欄の文章はすべて画面テロップとして使用する。"
@@ -237,8 +268,10 @@ def _video_prompt_item(
         "BGMは場面転換中も途切れさせず、テロップのタイピング演出と映像の切り替えをリズムに合わせ、終了時だけ自然にフェードアウトする。"
         "意味のない静止、BGMの音切れ、冒頭の黒フレームは禁止し、問題があれば再生成する。"
         f"{cta}。{brand_rule} Instagram、YouTube、TikTok、X、FacebookなどのSNS名、SNSロゴ、アプリアイコン、"
-        "ユーザー名、保存ファイル名、拡張子、透かしを画面に表示しない。不自然な身体変形、激しい点滅、過剰な動きを避ける。"
-        "映像の検品では、全フレームを確認し、上下テキストの重複、タイピング順序、読める保持時間、文字の欠落、"
+        "ユーザー名、保存ファイル名、拡張子、透かしを画面に表示しない。不自然な身体変形、激しい点滅、過剰な動き、元画像にない人物や文字の追加を避ける。"
+        "画面転換は明るいクロスディゾルブまたはスライドで統一し、9枚の連続性が分かるテンポにする。"
+        "映像の検品では、9枚すべてが順番通り使用され、記事の主要内容が動画全体で要約されていることを確認する。"
+        "さらに全フレームを確認し、上下テキストの重複、タイピング順序、読める保持時間、文字の欠落、"
         "テロップと人物・イラストの重なり、安全余白、場面転換、音声ナレーションが混入していないこと、BGMの明るさと音切れも確認する。"
         f"{PROFESSIONAL_REVIEW}"
     )
@@ -271,9 +304,9 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
         "reel_cover": _image_prompt_item(reel.get("cover_title", ""), reel.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["reel_cover"], reel_cover_visual),
         "youtube_thumbnail": _image_prompt_item(youtube.get("thumbnail_title", ""), youtube.get("thumbnail_body", ""), "1280×720", horizontal, "太めゴシック。見出し80〜110px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["youtube_thumbnail"], youtube_cover_visual),
         "tiktok_cover": _image_prompt_item(tiktok.get("cover_title", ""), tiktok.get("cover_body", ""), "1080×1920", vertical, "太めゴシック。見出し72〜96px、補足は見出しの約80％、最大2行", MEDIA_FILENAMES["tiktok_cover"], tiktok_cover_visual),
-        "reel_video": _video_prompt_item(reel, "1080×1920", "40〜45秒", MEDIA_FILENAMES["reel_video"], True, brand_name, article_summary),
-        "youtube_video": _video_prompt_item(youtube, "1920×1080", "40〜45秒", MEDIA_FILENAMES["youtube_video"], False, brand_name, article_summary),
-        "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "40〜45秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name, article_summary),
+        "reel_video": _video_prompt_item(reel, "1080×1920", "約55〜60秒", MEDIA_FILENAMES["reel_video"], True, brand_name, article_summary),
+        "youtube_video": _video_prompt_item(youtube, "1920×1080", "約55〜60秒", MEDIA_FILENAMES["youtube_video"], False, brand_name, article_summary),
+        "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "約55〜60秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name, article_summary),
     }
     prompts["instagram_carousel"] = []
     for index, slide in enumerate(plan.get("carousel", {}).get("slides", [])[:9], 1):
@@ -343,10 +376,17 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 - ハッシュタグは文字列配列にする
 - カルーセルは必ず9枚。1枚目は表紙、9枚目はまとめ・自然な行動喚起
 - カルーセルは、1枚目＝興味を引く表紙、2枚目＝読者の悩み、3〜7枚目＝記事の重要ポイント、8枚目＝具体的な行動や注意点、9枚目＝まとめと自然な行動喚起の流れにする
+- 9枚だけを順番に読むことで、元記事の結論・重要ポイント・具体策・注意点まで理解できる内容にする
+- 3〜7枚目は元記事の異なるH2または主要テーマを優先して割り当て、同じ説明を言い換えて枚数を埋めない
+- 各スライドのtitleは短く、bodyはそのページだけでも意味が通じる具体的な要約にする
 - カルーセル各枚のvisualは、そのスライドのtitleとbodyの意味を一目で理解できる具体的な一場面にする
 - 各スライドで同じ人物の同じポーズや同じ背景を繰り返さず、表情・動作・視点・背景・小物を内容に合わせて変える
-- リール、TikTok、YouTubeはいずれも40〜45秒程度。各動画は5〜7シーン、1シーン4〜6秒を目安にする
-- 動画は記事の重要ポイントを5〜7シーンで要約し、「関心を引く→悩みに共感→理解を深める→具体策→注意点→前向きなまとめ」の流れにする
+- リール、TikTok、YouTubeは、完成したカルーセル9枚を01〜09の順に使用する約55〜60秒の動画にする
+- 動画はカルーセル9枚と同じ見出し・説明・イラストを使い、別の要約や別のストーリーへ変更しない
+- JSONのreel・youtube・tiktokのscenesは空配列にする。アプリ側でカルーセル9枚から同じ内容の9シーンを自動作成する
+- 1枚目を表紙、2〜8枚目を記事の解説、9枚目をまとめ・自然な行動喚起として、記事の内容を一本の動画で要約する
+- 各画像は5〜6秒を目安に表示し、読む時間を確保しながら間延びしないテンポにする
+- 動画の動きはカルーセル画像への緩やかなズーム、パン、光、人物・小物の自然な微動を中心とし、元画像を別物へ描き直さない
 - 動画各シーンのvisualは、そのシーンのcaptionとnarrationを具体的に表す人物・表情・動作・背景・小物を指定し、無関係な汎用映像を使わない
 - 全画像・全動画を、明るい自然光、透明感のあるパステルカラー、内容に合う鮮やかなアクセントカラー、前向きで親しみやすい雰囲気にする
 - 暗い画面、濁った色、灰色一色、重苦しい表情、恐怖をあおる演出、幼すぎるイラストは禁止する
@@ -371,9 +411,9 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
   "facebook": {{"text": "詳しい投稿文", "hashtags": ["#タグ"], "image_title": "短い見出し", "image_body": "60文字以内", "visual": "具体的な場面"}},
   "gbp": {{"text": "GBP最新情報の投稿文", "image_title": "短い見出し", "image_body": "80文字以内", "visual": "具体的な場面"}},
   "carousel": {{"caption": "Instagramキャプション", "hashtags": ["#タグ"], "slides": [{{"title": "短い見出し", "body": "80文字以内", "visual": "具体的な場面"}}]}},
-  "reel": {{"caption": "リール投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": [{{"caption": "上部見出し", "narration": "音声にせずタイピング表示する45文字以内のテロップ本文", "visual": "具体的な場面"}}]}},
-  "youtube": {{"title": "タイトル", "description": "概要欄", "hashtags": ["#タグ"], "thumbnail_title": "サムネイル見出し", "thumbnail_body": "短い補足", "scenes": [{{"caption": "上部見出し", "narration": "音声にせずタイピング表示する45文字以内のテロップ本文", "visual": "具体的な場面"}}]}},
-  "tiktok": {{"caption": "投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": [{{"caption": "上部見出し", "narration": "音声にせずタイピング表示する45文字以内のテロップ本文", "visual": "具体的な場面"}}]}}
+  "reel": {{"caption": "リール投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}},
+  "youtube": {{"title": "タイトル", "description": "概要欄", "hashtags": ["#タグ"], "thumbnail_title": "サムネイル見出し", "thumbnail_body": "短い補足", "scenes": []}},
+  "tiktok": {{"caption": "投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}}
 }}"""
     last_error = None
     for attempt in range(2):
