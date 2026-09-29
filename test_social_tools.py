@@ -1,0 +1,35 @@
+import unittest
+import social_tools as s
+
+
+class PromptTests(unittest.TestCase):
+    def test_preserves_copy_and_labels(self):
+        title = '検索意図を理解するマーケティングの具体的な進め方'
+        body = '長い文章も単語の途中で切らずに保持します。' * 5
+        slides = [dict(title=title, body=body, labels=['まず目的を確認', '条件を整理する'], visual='手順図') for _ in range(9)]
+        plan = s._normalize_plan({'carousel': {'slides': slides}}, '## 本文\n説明です。')
+        prompts = s._build_creative_prompts(plan, '## 本文\n説明です。', '')
+        self.assertEqual(len(prompts['instagram_carousel']), 9)
+        for image in prompts['instagram_carousel']:
+            self.assertEqual(image['catch_copy'], title)
+            self.assertEqual(image['sub_copy'], body)
+            self.assertIn('まず目的を確認', image['prompt'])
+            self.assertIn('途中で分割しない', image['prompt'])
+            self.assertNotIn('完全分離', image['prompt'])
+        for key in ('reel', 'youtube', 'tiktok'):
+            self.assertEqual(len(plan[key]['scenes']), 9)
+            self.assertEqual(plan[key]['scenes'][0]['narration'], body)
+            self.assertEqual(plan[key]['scenes'][0]['labels'], slides[0]['labels'])
+            self.assertIn('Instagram_カルーセル_09.png', prompts[key + '_video']['prompt'])
+            self.assertIn('まず目的を確認', prompts[key + '_video']['prompt'])
+
+    def test_legacy_and_exports(self):
+        plan = s._normalize_plan({}, '## 長い見出し\n省略せずに維持する本文。')
+        plan['creative_prompts'] = s._build_creative_prompts(plan, '## 内容\n本文。', '')
+        self.assertIn('図解', s.creative_prompt_text(plan))
+        self.assertEqual(len(plan['carousel']['slides']), 9)
+        self.assertEqual(s._labels(None), [])
+
+
+if __name__ == '__main__':
+    unittest.main()
