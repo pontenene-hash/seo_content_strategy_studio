@@ -20,8 +20,29 @@ class PromptTests(unittest.TestCase):
             self.assertEqual(len(plan[key]['scenes']), 9)
             self.assertEqual(plan[key]['scenes'][0]['narration'], body)
             self.assertEqual(plan[key]['scenes'][0]['labels'], slides[0]['labels'])
-            self.assertIn('Instagram_カルーセル_09.png', prompts[key + '_video']['prompt'])
+            if key != 'youtube':
+                self.assertIn('Instagram_カルーセル_09.png', prompts[key + '_video']['prompt'])
+            else:
+                self.assertNotIn('Instagram_カルーセル_09.png', prompts[key + '_video']['prompt'])
             self.assertIn('まず目的を確認', prompts[key + '_video']['prompt'])
+
+    def test_youtube_independent_and_typing(self):
+        scenes = [dict(caption=f'横長見出し{i}', narration='具体策をタイプ表示する。', visual='左右比較の横長構図') for i in range(6)]
+        plan = s._normalize_plan({'youtube': {'scenes': scenes}}, '## 内容\n説明です。')
+        prompts = s._build_creative_prompts(plan, '## 内容\n説明です。', '')
+        self.assertEqual(plan['youtube']['scenes'], scenes)
+        self.assertEqual(len(plan['reel']['scenes']), 9)
+        self.assertEqual(len(plan['tiktok']['scenes']), 9)
+        youtube = prompts['youtube_video']['prompt']
+        self.assertIn('16:9専用構図', youtube)
+        self.assertIn('横長見出し5', youtube)
+        self.assertNotIn('Instagram_カルーセル_', youtube)
+        for key in ('reel_video', 'youtube_video', 'tiktok_video'):
+            prompt = prompts[key]['prompt']
+            self.assertIn('編集可能な文字レイヤー', prompt)
+            self.assertIn('全文を最初から表示しない', prompt)
+            self.assertIn('文字が増えても中央位置・行位置・文字サイズを動かさない', prompt)
+            self.assertNotIn('その画像を読みやすい時間そのまま表示する', prompt)
 
     def test_legacy_and_exports(self):
         plan = s._normalize_plan({}, '## 長い見出し\n省略せずに維持する本文。')
