@@ -3,6 +3,20 @@ import social_tools as s
 
 
 class PromptTests(unittest.TestCase):
+    def test_quality_standards_in_every_export(self):
+        brand = 'ぽんて鍼灸整骨院・ぽんてアロマサロン'
+        plan = s._normalize_plan({}, '## 日々のケア\n無理なく相談しましょう。')
+        plan['creative_prompts'] = s._build_creative_prompts(plan, '## ケア\n相談しましょう。', brand)
+        for entry in plan['creative_prompts'].values():
+            for item in entry if isinstance(entry, list) else [entry]:
+                self.assertIn(s.PRODUCTION_STANDARDS, item['prompt'])
+                self.assertIn(brand, item['prompt'])
+        slides = plan['creative_prompts']['instagram_carousel']
+        self.assertIn('表紙として', slides[0]['prompt'])
+        self.assertIn('最終ページとして', slides[-1]['prompt'])
+        self.assertTrue(all('9枚共通デザイン' in item['prompt'] for item in slides))
+        self.assertIn('追加品質基準20項目', s.creative_prompt_text(plan))
+
     def test_preserves_copy_and_labels(self):
         title = '検索意図を理解するマーケティングの具体的な進め方'
         body = '長い文章も単語の途中で切らずに保持します。' * 5
