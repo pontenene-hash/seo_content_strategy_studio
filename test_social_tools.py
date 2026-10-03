@@ -7,7 +7,17 @@ class PromptTests(unittest.TestCase):
         brand = 'ぽんて鍼灸整骨院・ぽんてアロマサロン'
         plan = s._normalize_plan({}, '## 日々のケア\n無理なく相談しましょう。')
         plan['creative_prompts'] = s._build_creative_prompts(plan, '## ケア\n相談しましょう。', brand)
-        for entry in plan['creative_prompts'].values():
+        for key, entry in plan['creative_prompts'].items():
+            if key == 'article_section_images':
+                for item in entry:
+                    self.assertEqual(item['catch_copy'], '')
+                    self.assertEqual(item['sub_copy'], '')
+                    self.assertEqual(item['labels'], [])
+                    self.assertIn('文字なしイメージイラスト', item['prompt'])
+                    self.assertIn('相談しましょう。', item['prompt'])
+                    self.assertNotIn(s.PRODUCTION_STANDARDS, item['prompt'])
+                    self.assertNotIn('【正式なブランド・店舗名】', item['prompt'])
+                continue
             for item in entry if isinstance(entry, list) else [entry]:
                 self.assertIn(s.PRODUCTION_STANDARDS, item['prompt'])
                 self.assertIn(brand, item['prompt'])

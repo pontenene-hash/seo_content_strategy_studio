@@ -374,6 +374,32 @@ def _video_prompt_item(
     }
 
 
+def _article_image_prompt_item(section: dict, index: int) -> dict:
+    heading = _display_text(section.get("heading", ""))
+    context = _display_text(section.get("summary", ""))
+    layout = "横長16:9。記事の主題を表す一場面を中心に、人物・背景・小物を自然に配置し、余白と奥行きを整える"
+    return {
+        "size": "1200×675", "catch_copy": "", "sub_copy": "", "labels": [],
+        "font_spec": "文字なし", "layout": layout,
+        "output_filename": f"ブログ_{section.get('level', 'H2')}_{index:02d}_{_safe_filename_part(heading)}.png",
+        "section": index, "heading_level": section.get("level", "H2"), "heading": heading,
+        "prompt": (
+            "【記事に添える文字なしイメージイラスト】\n"
+            f"制作資料の見出し：{heading}\n制作資料の本文：{context}\n"
+            "上記は内容を理解するための資料であり、画像内に書き写さない。"
+            "記事のテーマや読者の気持ちを想像できる、内容に沿った具体的な一場面を描く。"
+            "表情・動作・姿勢・生活環境・背景・小物で主題を伝える。施術や運動の場面は記事に関連する場合だけ使う。"
+            "見出し、要約文、細かい説明文、箇条書き、数字ラベル、吹き出し、説明カード、予約CTA、店舗名、ロゴ、透かしは描かない。"
+            "文字用の帯や空欄カードも設けない。文章をまとめた図解ポスターではなく、記事を読み進めやすくする挿絵にする。"
+            f"{IMAGE_QUALITY} 出力サイズ1200×675。{layout}。"
+            "記事内の画像全体で明るさ・色調・タッチを統一し、各セクションで場面・視点・仕草を変える。"
+            "記事にない効果や施術結果を連想させる誇張したビフォーアフターは描かない。"
+            "制作工程は記事理解→場面設計→生成→記事との一致・顔・手指・身体・見切れ・余白・色調・文字混入を確認→修正→再確認。"
+            "デザイナー・イラストレーター・マーケティング担当者の視点で魅力と自然さを確認する。実施していない確認を実施済みと報告しない。"
+        ),
+    }
+
+
 def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
     x_data, facebook = plan.get("x_image", {}), plan.get("facebook", {})
     threads, gbp = plan.get("threads", {}), plan.get("gbp", {})
@@ -425,20 +451,16 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
     }]
     prompts["article_section_images"] = []
     for index, section in enumerate(sections, 1):
-        item = _image_prompt_item(
-            section.get("heading", ""), section.get("summary", ""), "1200×675", horizontal,
-            "太めゴシック。見出し56〜72px、補足は見出しの約80％、1行15〜18文字以内、行間1.25〜1.4倍",
-            f"ブログ_{section.get('level', 'H2')}_{index:02d}_{_safe_filename_part(section.get('heading', ''))}.png",
-            f"記事の{section.get('level', 'H2')}『{section.get('heading', '')}』。要点：{section.get('summary', '')}",
-        )
-        item.update({"section": index, "heading_level": section.get("level", "H2"), "heading": section.get("heading", "")})
+        item = _article_image_prompt_item(section, index)
         prompts["article_section_images"].append(item)
     brand_rule = (
         f"\n【正式なブランド・店舗名】{str(brand_name).strip()}。この表記をそのまま使用し、略称・英語・別名称へ変更しない。"
         if str(brand_name or "").strip() else
         "\n【店舗情報】記事に明示された正式名称・連絡方法だけを使用する。未提供の場合は一般的な相談CTAとし、架空の店舗情報を加えない。"
     )
-    for entry in prompts.values():
+    for key, entry in prompts.items():
+        if key == "article_section_images":
+            continue
         for item in (entry if isinstance(entry, list) else [entry]):
             item["prompt"] += brand_rule
     return prompts
@@ -609,7 +631,7 @@ def creative_prompt_text(plan: dict) -> str:
         parts.append(
             f"\n\n### セクション{item.get('section', '')}｜{item.get('heading_level', '')}：{item.get('heading', '')}\n"
             f"サイズ：{item.get('size', '')}\n推奨保存ファイル名：{item.get('output_filename', '')}\n"
-            f"画像内見出し：{item.get('catch_copy', '')}\n画像内補足：{item.get('sub_copy', '')}\n"
-            f"レイアウト：{item.get('layout', '')}\nフォント指定：{item.get('font_spec', '')}\n\n{item.get('prompt', '')}"
+            f"画像内テキスト：なし（記事に沿ったイメージイラスト）\n"
+            f"レイアウト：{item.get('layout', '')}\n\n{item.get('prompt', '')}"
         )
     return "".join(parts).strip()
