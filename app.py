@@ -23,6 +23,7 @@ from research_tools import (
     search_serper,
 )
 from social_tools import creative_prompt_text, generate_social_plan, social_text
+from rewrite_tools import render_rewrite_tab
 
 
 st.set_page_config(page_title="SEO記事自動生成", page_icon="✍️", layout="centered")
@@ -313,7 +314,7 @@ def validate_public_url(raw_url: str) -> str:
     return url
 
 
-def fetch_page(url: str) -> dict[str, str]:
+def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
     """リダイレクト先も検証しながらHTML本文を取得する。"""
     headers = {
         "User-Agent": (
@@ -357,7 +358,17 @@ def fetch_page(url: str) -> dict[str, str]:
         for tag in soup.find_all(["h1", "h2", "h3"])
         if tag.get_text(" ", strip=True)
     )
-    main = soup.find("main") or soup.find("article") or soup.body or soup
+    main = (soup.find("article") or soup.find("main") or soup.body or soup) if full_article else (soup.find("main") or soup.find("article") or soup.body or soup)
+    if full_article:
+        for tag in main.find_all(["nav", "footer", "aside"]):
+            tag.decompose()
+        for tag in main.find_all("a", href=True):
+            label = tag.get_text(" ", strip=True)
+            href = urljoin(current_url, tag["href"])
+            if label and href.startswith(("https://", "http://")):
+                tag.replace_with(f"{label} ({href})")
+        for tag in main.find_all(["h1", "h2", "h3"]):
+            tag.replace_with(f"\n{'#' * int(tag.name[1])} {tag.get_text(' ', strip=True)}\n")
     body = "\n".join(
         line.strip() for line in main.get_text("\n", strip=True).splitlines() if line.strip()
     )
@@ -369,6 +380,8 @@ def fetch_page(url: str) -> dict[str, str]:
         f"取得元URL: {current_url}\nページタイトル: {title}\n"
         f"メタ説明: {description}\n\n見出し:\n{headings}\n\n本文:\n{body}"
     )
+    if full_article:
+        return {"url": current_url, "title": title, "article": body, "text": source}
     return {"url": current_url, "title": title, "text": source[:MAX_PAGE_CHARS]}
 
 
@@ -901,6 +914,8 @@ def render_social_tab(
     )
 
     sources = {}
+    if "rewrite_result" in st.session_state:
+        sources["リライトした完成本文"] = st.session_state["rewrite_result"]["article"]
     if "seo_result" in st.session_state:
         sources["キーワードSEO記事の完成本文"] = st.session_state["seo_result"]["article"]
     if "url_result" in st.session_state:
@@ -911,6 +926,9 @@ def render_social_tab(
     source_label = st.selectbox("ネタ元の記事", list(sources.keys()), key="social_source")
     article_default = sources[source_label]
     article_key = f"social_article_{source_label}"
+    if source_label == "リライトした完成本文":
+        import hashlib
+        article_key += hashlib.sha256(article_default.encode()).hexdigest()[:16]
     if source_label == "記事ファイルをアップロード":
         uploaded_article = st.file_uploader(
             "ダウンロードした記事ファイルを選択",
@@ -1502,8 +1520,8 @@ with st.sidebar:
 
 current_api_key = api_key_input.strip() or saved_key
 model = model.strip()
-research_tab, keyword_tab, url_tab, social_tab = st.tabs(
-    ["競合分析→一括制作", "キーワードからSEO記事", "URLから紹介記事", "記事からSNS展開"]
+research_tab, keyword_tab, url_tab, rewrite_tab, social_tab = st.tabs(
+    ["競合分析→一括制作", "キーワードからSEO記事", "URLから紹介記事", "記事リライト", "記事からSNS展開"]
 )
 
 with research_tab:
@@ -1642,6 +1660,9 @@ with keyword_tab:
 
 with url_tab:
     render_url_tab(current_api_key, model)
+
+with rewrite_tab:
+    render_rewrite_tab(current_api_key, model, fetch_page, call_llm, markdown_to_wordpress_html, safe_download_button)
 
 with social_tab:
     render_social_tab(current_api_key, model)
