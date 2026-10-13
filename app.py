@@ -70,7 +70,7 @@ SYSTEM_PROMPT = """あなたは月間100万PV規模のメディアを支援す�
 
 FALLBACK_MODELS = ("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")
 MAX_PAGE_CHARS = 18_000
-PAGE_REQUEST_TIMEOUT = 20
+PAGE_REQUEST_TIMEOUT = (30, 30)
 
 
 def secret_value(name: str) -> Optional[str]:
@@ -325,12 +325,24 @@ def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
     current_url = validate_public_url(url)
     response = None
     for _ in range(6):
-        response = requests.get(
-            current_url,
-            headers=headers,
-            timeout=PAGE_REQUEST_TIMEOUT,
-            allow_redirects=False,
-        )
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                    current_url, headers=headers, timeout=PAGE_REQUEST_TIMEOUT,
+                    allow_redirects=False,
+                )
+                if response.status_code in {502, 503, 504} and attempt == 0:
+                    response.close()
+                    time.sleep(2)
+                    continue
+                break
+            except requests.exceptions.SSLError as exc:
+                raise ValueError("サイトの安全な接続（SSL）を確認できません。本文を貼り付けて続けてください。") from exc
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                if attempt == 0:
+                    time.sleep(2)
+                    continue
+                raise ValueError("サイトへの接続に失敗しました。時間を置いて2回試しましたが接続できませんでした。Safariで開ける場合は、下の『ページ本文を貼り付ける』欄に本文を入力して、もう一度生成してください。URLリライトの場合は『記事を貼り付ける』へ切り替えてください。") from exc
         if response.is_redirect or response.is_permanent_redirect:
             location = response.headers.get("location")
             if not location:
@@ -343,7 +355,12 @@ def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
 
     if response is None:
         raise ValueError("ページを取得できませんでした。")
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        code = response.status_code
+        message = {403: "サイト側でアクセスが拒否されました", 404: "指定したページが見つかりません", 429: "サイト側でアクセス回数が制限されています"}.get(code, "サイトから正常な応答がありません")
+        raise ValueError(f"{message}（HTTP {code}）。本文を貼り付けて続けられます。") from exc
     if "text/html" not in response.headers.get("content-type", "").lower():
         raise ValueError("HTML形式のWebページを指定してください。")
 
@@ -721,6 +738,12 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
         placeholder="https://example.com/page",
         key="url_article_url",
     )
+    pasted_body = st.text_area(
+        "ページ本文を貼り付ける（URL取得に失敗した場合）",
+        key="url_article_pasted_body", height=220, max_chars=30000,
+        help="Safariで本文をコピーして貼り付けてください。入力がある場合はURLに接続せず、この本文から生成します。100〜30,000文字。",
+    )
+    st.caption("本文の貼り付けがある場合は、URLは任意です。貼り付けた内容を優先します。")
     experience_note = st.text_area(
         "あなたの体験談や独自ノウハウのメモ（任意）",
         placeholder=(
@@ -742,8 +765,8 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
     if generate:
         url = url.strip()
         experience_note = experience_note.strip()
-        if not url:
-            st.warning("紹介したいページのURLを入力してください。")
+        if not url and not pasted_body.strip():
+            st.warning("紹介したいページのURL、またはページ本文を入力してください。")
             st.stop()
         if not current_api_key:
             st.error("左側の「Gemini API設定」からAPIキーを入力してください。")
@@ -752,12 +775,18 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
             st.error("使用モデルを入力してください。")
             st.stop()
 
-        st.session_state.pop("url_result", None)
-        st.session_state.pop("url_work", None)
-        progress = st.progress(0, text="対象ページを読み込んでいます…")
-        client = genai.Client(api_key=current_api_key)
+        progress = st.progress(0, text="入力を確認しています（URL接続は最大2回試行）…")
+        client = None
         try:
-            page = fetch_page(validate_public_url(url))
+            if pasted_body.strip():
+                if len(pasted_body.strip()) < 100:
+                    raise ValueError("ページ本文を100文字以上貼り付けてください。URLには接続していません。")
+                page = {"url": url or "本文貼り付け", "text": f"ユーザー提供のページ本文（URLからの取得・確認は行っていません）\n{pasted_body.strip()}"}
+            else:
+                page = fetch_page(url)
+            client = genai.Client(api_key=current_api_key)
+            st.session_state.pop("url_result", None)
+            st.session_state.pop("url_work", None)
             progress.progress(10, text="ステップ1/3：想定読者の悩みを分析しています…")
             intent = analyze_url_intent(
                 client,
@@ -788,13 +817,14 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
             st.session_state["url_work"] = work
             generate_url_parts(client, model, work, progress)
         except requests.RequestException as exc:
-            st.error(f"ページを取得できませんでした：{exc}")
+            st.error("ページの通信処理に失敗しました。上の『ページ本文を貼り付ける』欄に本文を入力して続けてください。")
         except ValueError as exc:
             st.error(str(exc))
         except Exception as exc:
             display_error(exc)
         finally:
-            client.close()
+            if client is not None:
+                client.close()
 
     work = st.session_state.get("url_work")
     if work and "url_result" not in st.session_state:

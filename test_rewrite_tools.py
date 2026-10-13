@@ -36,7 +36,7 @@ class RewriteTests(unittest.TestCase):
         node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'fetch_page')
         html = '<title>題名</title><main><nav>不要ナビ</nav><article><header><h1>元の題名</h1></header><h2>重要な条件</h2><p>' + '本文' * 11000 + '</p><a href="/source">出典</a></article></main>'
         response = SimpleNamespace(is_redirect=False, is_permanent_redirect=False,
-            headers={'content-type': 'text/html'}, text=html, raise_for_status=lambda: None)
+            headers={'content-type': 'text/html'}, text=html, status_code=200, raise_for_status=lambda: None)
         env = dict(BeautifulSoup=BeautifulSoup, requests=SimpleNamespace(get=Mock(return_value=response)),
             validate_public_url=lambda x: x, urljoin=urljoin, PAGE_REQUEST_TIMEOUT=20, MAX_PAGE_CHARS=18000)
         exec(compile(ast.Module(body=[node], type_ignores=[]), 'app.py', 'exec'), env)
