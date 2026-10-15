@@ -24,6 +24,7 @@ from research_tools import (
 )
 from social_tools import creative_prompt_text, generate_social_plan, social_text
 from rewrite_tools import render_rewrite_tab
+from connection_tools import diagnose_url, ipv4_get
 
 
 st.set_page_config(page_title="SEO記事自動生成", page_icon="✍️", layout="centered")
@@ -314,7 +315,7 @@ def validate_public_url(raw_url: str) -> str:
     return url
 
 
-def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
+def fetch_page(url: str, full_article: bool = False, force_ipv4: bool = False) -> dict[str, str]:
     """リダイレクト先も検証しながらHTML本文を取得する。"""
     headers = {
         "User-Agent": (
@@ -327,7 +328,8 @@ def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
     for _ in range(6):
         for attempt in range(2):
             try:
-                response = requests.get(
+                getter = ipv4_get if force_ipv4 else requests.get
+                response = getter(
                     current_url, headers=headers, timeout=PAGE_REQUEST_TIMEOUT,
                     allow_redirects=False,
                 )
@@ -342,7 +344,7 @@ def fetch_page(url: str, full_article: bool = False) -> dict[str, str]:
                 if attempt == 0:
                     time.sleep(2)
                     continue
-                raise ValueError("サイトへの接続に失敗しました。時間を置いて2回試しましたが接続できませんでした。Safariで開ける場合は、下の『ページ本文を貼り付ける』欄に本文を入力して、もう一度生成してください。URLリライトの場合は『記事を貼り付ける』へ切り替えてください。") from exc
+                raise ValueError("サイトへの接続に失敗しました。時間を置いて2回試しましたが接続できませんでした。Safariで開ける場合は、URL欄の下にある『ページ本文を貼り付ける』欄に本文を入力して、もう一度生成してください。URLリライトの場合は『記事を貼り付ける』へ切り替えてください。") from exc
         if response.is_redirect or response.is_permanent_redirect:
             location = response.headers.get("location")
             if not location:
@@ -738,6 +740,18 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
         placeholder="https://example.com/page",
         key="url_article_url",
     )
+    with st.expander("URLを読み込めない場合：接続診断・接続方法"):
+        ipv4 = st.checkbox("IPv4で接続する（通常接続に失敗する場合）", key="url_use_ipv4")
+        st.caption("サイトへの接続方法を切り替えます。証明書の確認は継続します。サイト側の制限を解除する機能ではありません。")
+        if st.button("このURLの接続を診断する", key="url_diagnose"):
+            with st.spinner("アプリのサーバーから接続を確認しています…"):
+                st.session_state["url_diagnostic_result"] = diagnose_url(url, validate_public_url)
+        diagnosis = st.session_state.get("url_diagnostic_result")
+        if diagnosis:
+            st.caption(f"診断したURL：{diagnosis['url']}")
+            st.dataframe(diagnosis["rows"], hide_index=True, use_container_width=True)
+            st.info("IPv4が成功してIPv6が失敗する場合は『IPv4で接続する』を試してください。両方のTCP接続が失敗する場合は接続経路やサイト側制限の確認が必要です。TLSまで成功してもページ取得が成功するとは限りません。")
+            safe_download_button("診断結果を保存", json.dumps(diagnosis, ensure_ascii=False, indent=2), "url_connection_diagnosis.txt", "text/plain")
     pasted_body = st.text_area(
         "ページ本文を貼り付ける（URL取得に失敗した場合）",
         key="url_article_pasted_body", height=220, max_chars=30000,
@@ -783,7 +797,7 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
                     raise ValueError("ページ本文を100文字以上貼り付けてください。URLには接続していません。")
                 page = {"url": url or "本文貼り付け", "text": f"ユーザー提供のページ本文（URLからの取得・確認は行っていません）\n{pasted_body.strip()}"}
             else:
-                page = fetch_page(url)
+                page = fetch_page(url, force_ipv4=ipv4)
             client = genai.Client(api_key=current_api_key)
             st.session_state.pop("url_result", None)
             st.session_state.pop("url_work", None)
