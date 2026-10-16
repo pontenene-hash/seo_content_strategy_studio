@@ -25,6 +25,7 @@ from research_tools import (
 from social_tools import creative_prompt_text, generate_social_plan, social_text
 from rewrite_tools import render_rewrite_tab
 from connection_tools import diagnose_url, ipv4_get
+from download_tools import dated_filename, download_timestamp, social_download_bundle
 
 
 st.set_page_config(page_title="SEO記事自動生成", page_icon="✍️", layout="centered")
@@ -35,12 +36,13 @@ def safe_download_button(
     data: bytes | str,
     file_name: str,
     mime: str = "application/octet-stream",
+    timestamp: str | None = None,
 ) -> None:
     """iPhoneでも元のアプリ画面を残したまま保存画面を開く。"""
     payload = data.encode("utf-8-sig") if isinstance(data, str) else data
     encoded = base64.b64encode(payload).decode("ascii")
     safe_label = escape(label)
-    safe_file_name = escape(file_name, quote=True)
+    safe_file_name = escape(dated_filename(file_name, timestamp), quote=True)
     safe_mime = escape(mime, quote=True)
     st.markdown(
         f"""
@@ -59,6 +61,20 @@ def safe_download_button(
     )
     st.caption(
         "iPhoneでは保存画面を新しいタブで開きます。保存後にそのタブを閉じると、元の画面へ戻れます。"
+    )
+
+
+def render_social_bundle_download(plan: dict) -> None:
+    st.divider()
+    st.subheader("最後に：SNS投稿文と制作プロンプトを一括保存")
+    st.caption("投稿文・ハッシュタグ・構成と画像／動画プロンプトをまとめます。ZIPには一体版と個別ファイルが入ります。ファイル名の日時は保存用データ作成時点の日本時間です。")
+    stamp = download_timestamp()
+    safe_download_button(
+        "SNS投稿文＋画像・動画プロンプトを一括ダウンロード（ZIP）",
+        social_download_bundle(plan, stamp),
+        "SNS投稿文_画像動画プロンプト_一括.zip",
+        "application/zip",
+        timestamp=stamp,
     )
 
 
@@ -1162,6 +1178,8 @@ def render_social_tab(
         mime="text/markdown",
     )
 
+    render_social_bundle_download(plan)
+
 
 def generate_competitor_report(
     client, model: str, keyword: str, context: str, status_callback=None
@@ -1533,6 +1551,7 @@ def render_research_to_content_tab(
         )
         with st.expander("画像・動画プロンプトを画面で確認", expanded=True):
             st.markdown(creative_prompt_text(plan))
+        render_social_bundle_download(plan)
 
 
 st.title("SEOコンテンツ戦略スタジオ")

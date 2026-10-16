@@ -587,9 +587,13 @@ def social_text(plan: dict) -> str:
         parts.append(f"\n\n{label}投稿\n{item.get('text', '')}\n{_hashtags(item.get('hashtags'))}")
     carousel = plan.get("carousel", {})
     parts.append(f"\n\nInstagram投稿\n{carousel.get('caption', '')}\n{_hashtags(carousel.get('hashtags'))}")
+    for index, slide in enumerate(carousel.get("slides", []), 1):
+        parts.append(f"\n【カルーセル{index}枚目】\n{slide.get('title', '')}\n{slide.get('body', '')}")
     for key, label in (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok")):
         item = plan.get(key, {})
         parts.append(f"\n\n{label}\n{item.get('title', '')}\n{item.get('caption', item.get('description', ''))}\n{_hashtags(item.get('hashtags'))}")
+        for index, scene in enumerate(item.get("scenes", []), 1):
+            parts.append(f"\n【シーン{index}】\n{scene.get('caption', '')}\n{scene.get('narration', '')}")
     return "\n".join(parts).strip()
 
 
