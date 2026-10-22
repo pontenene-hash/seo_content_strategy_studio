@@ -38,6 +38,7 @@ MEDIA_FILENAMES = {
     "youtube_video": "YouTube_動画.mp4",
     "tiktok_cover": "TikTok_表紙.png",
     "tiktok_video": "TikTok_動画.mp4",
+    "gbp_video": "GBP_動画.mp4",
 }
 
 IMAGE_QUALITY = (
@@ -374,6 +375,38 @@ def _video_prompt_item(
     }
 
 
+def _gbp_video_prompt_item(plan: dict, brand_name: str) -> dict:
+    item = plan.get("gbp_video")
+    scenes = item.get("scenes", []) if isinstance(item, dict) else []
+    scenes = scenes if isinstance(scenes, list) else []
+    script = "\n".join(
+        f"{i * 6}〜{(i + 1) * 6}秒：見出し『{scene.get('caption', '')}』。"
+        f"タイプ表示する補足『{scene.get('narration', '')}』。イラスト：{scene.get('visual', '')}"
+        for i, scene in enumerate(scenes) if isinstance(scene, dict)
+    )
+    return {
+        "size": "1200×900（4:3）", "duration": "30秒以内（5シーン・各6秒、転換込み）",
+        "output_filename": MEDIA_FILENAMES["gbp_video"],
+        "prompt": (
+            f"{PRODUCTION_STANDARDS}\n{TEXT_LAYOUT_RULES}\n"
+            "Googleビジネスプロフィール用の動画を独立制作する。1200×900・4:3、30fps、MP4、75MB以下。"
+            "全体は転換込みで必ず30秒以内。5シーン各6秒で記事の主要内容を要約する。尺を延長せず文章量を減らす。"
+            "表紙→悩み・原因→解決策→サービスの特徴→優しい相談CTA。提供されていない店舗情報や効果を創作しない。"
+            "明るく清潔で魅力ある日本人向けイラストを各内容に合わせて新規制作する。縦型動画の切り抜きや引き伸ばしは禁止。"
+            "上部に短い見出し、中央に人物・生活や施術シーン、下部に短い補足。四辺8％は安全余白。顔・手と文字を重ねない。"
+            "日本語の太めゴシック。見出し64〜80px、補足は約80％。全文の意味単位の改行と配置を先に決定し、単語途中で改行しない。"
+            "見出しは静止表示。補足は編集可能な文字レイヤーで1文字0.06秒のタイプライター表示。全文表示後2秒以上保持する。"
+            "0秒から明るい完成表紙。黒画面なし。ナレーション・会話音声なし。明るく穏やかな利用許諾のあるBGMを控えめに入れる。"
+            "画面転換は0.3秒で各6秒の中に含める。イラストには緩やかなパンや自然な微動を付ける。"
+            "最後は店舗への相談・予約を自然に案内する。URLや店舗名は提供された正式表記のみ。YouTube概要欄やInstagramへの誘導はしない。"
+            f"正式なブランド名：{brand_name or '未指定。記事内の正式名称だけを使用'}。\n場面構成：\n{script}\n"
+            "検品では誤字・文字切れ・改行・顔・手指・文字の重なり・明るさ・読み切れる速度を確認し、問題を修正する。"
+            "動画長30秒以内・75MB以下・解像度720p以上を実ファイルでも確認する。"
+            f"{PROFESSIONAL_REVIEW}"
+        ),
+    }
+
+
 def _article_image_prompt_item(section: dict, index: int) -> dict:
     heading = _display_text(section.get("heading", ""))
     context = _display_text(section.get("summary", ""))
@@ -423,6 +456,7 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
         "youtube_video": _video_prompt_item(youtube, "1920×1080", "約55〜60秒", MEDIA_FILENAMES["youtube_video"], False, brand_name, article_summary),
         "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "約55〜60秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name, article_summary),
     }
+    prompts["gbp_video"] = _gbp_video_prompt_item(plan, brand_name)
     prompts["instagram_carousel"] = []
     for index, slide in enumerate(plan.get("carousel", {}).get("slides", [])[:9], 1):
         item = _image_prompt_item(
@@ -476,11 +510,19 @@ def _validate_social_plan(data: dict) -> None:
     for key in ("reel", "youtube", "tiktok"):
         if not data.get(key, {}).get("scenes"):
             raise ValueError(f"{key}の動画構成がありません。")
+    gbp_item = data.get("gbp_video")
+    gbp_scenes = gbp_item.get("scenes", []) if isinstance(gbp_item, dict) else []
+    if not isinstance(gbp_scenes, list) or len(gbp_scenes) != 5 or any(
+        not isinstance(scene, dict) or not scene.get("caption") or not scene.get("visual")
+        or not isinstance(scene.get("narration"), str) or not scene["narration"] or len(scene["narration"]) > 40
+        for scene in gbp_scenes
+    ):
+        raise ValueError("GBP動画は5シーン、各補足40文字以内で作成してください。")
     prompts = data.get("creative_prompts", {})
     required_prompts = (
         "x_image", "facebook_eyecatch", "gbp_image", "threads_image", "reel_cover",
         "reel_video", "youtube_thumbnail", "youtube_video", "tiktok_cover",
-        "tiktok_video", "instagram_carousel", "article_section_images",
+        "tiktok_video", "gbp_video", "instagram_carousel", "article_section_images",
     )
     if any(key not in prompts for key in required_prompts):
         raise ValueError("画像・動画制作用プロンプトが不足しています。")
@@ -540,6 +582,7 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 - 画面テキストは日本語の文節と意味のまとまりで自然に改行できる長さにする。単語途中の分割、助詞・句読点の行頭、1文字だけの行を避ける
 - 改行後は各行の見た目の長さが近くなり、中央揃えで視覚的な重心が偏らない短文にする
 - visualは人物、表情、動作、背景、小物が分かる具体的な日本語の場面説明
+- GBP動画は1200×900・4:3専用、全体30秒以内、独立した5シーン各6秒（転換含む）。表紙→悩み・原因→対策→サービス→CTAで記事の重要点を要約。各caption20文字以内、narrationは自然な短文で40文字以内、visualに専用構図を指定する。記事にサービス情報がなければ実用ポイントとまとめで代替し、捏造しない
 - JSONを途中で省略せず、次の形式以外は出力しない
 
 {{
@@ -555,11 +598,12 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
   "carousel": {{"caption": "Instagramキャプション", "hashtags": ["#タグ"], "slides": [{{"title": "短い見出し", "body": "具体的な説明を40〜60文字程度", "labels": ["記事由来の具体策", "記事由来の注意点"], "visual": "図解形式・人物・各ラベルの対応先を具体的に指定"}}]}},
   "reel": {{"caption": "リール投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}},
   "youtube": {{"title": "タイトル", "description": "概要欄", "hashtags": ["#タグ"], "thumbnail_title": "サムネイル見出し", "thumbnail_body": "短い補足", "scenes": [{{"caption": "短い見出し", "narration": "タイプ表示する具体的なサブテキスト", "visual": "横長専用の構図と人物・図解・余白の配置", "labels": ["記事由来の図解ラベル"]}}]}},
+  "gbp_video": {{"title": "GBP動画タイトル", "scenes": [{{"caption": "短い見出し", "narration": "40文字以内の補足", "visual": "4:3専用の明るい場面"}}]}},
   "tiktok": {{"caption": "投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}}
 }}"""
     last_error = None
     for attempt in range(2):
-        retry = "" if not attempt else "\n前回はJSONが不完全でした。文章量を調整し、必ず最後まで有効なJSONで出力してください。"
+        retry = "" if not attempt else f"\n前回の検証エラー：{last_error}。指定形式・GBP5シーンと文字数を確認し、最後まで有効なJSONで出力してください。"
         raw = call_llm(
             client, model, prompt + retry, 16_000,
             response_mime_type="application/json", temperature=0.35,
@@ -589,7 +633,7 @@ def social_text(plan: dict) -> str:
     parts.append(f"\n\nInstagram投稿\n{carousel.get('caption', '')}\n{_hashtags(carousel.get('hashtags'))}")
     for index, slide in enumerate(carousel.get("slides", []), 1):
         parts.append(f"\n【カルーセル{index}枚目】\n{slide.get('title', '')}\n{slide.get('body', '')}")
-    for key, label in (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok")):
+    for key, label in (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok"), ("gbp_video", "Googleビジネスプロフィール動画")):
         item = plan.get(key, {})
         parts.append(f"\n\n{label}\n{item.get('title', '')}\n{item.get('caption', item.get('description', ''))}\n{_hashtags(item.get('hashtags'))}")
         for index, scene in enumerate(item.get("scenes", []), 1):
@@ -610,6 +654,7 @@ def creative_prompt_text(plan: dict) -> str:
         ("youtube_video", "YouTube動画"),
         ("tiktok_cover", "TikTok表紙"),
         ("tiktok_video", "TikTok動画"),
+        ("gbp_video", "Googleビジネスプロフィール動画"),
     )
     parts = ["# 画像・動画制作用プロンプト"]
     for key, label in labels:

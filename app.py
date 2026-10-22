@@ -25,6 +25,7 @@ from research_tools import (
 from social_tools import creative_prompt_text, generate_social_plan, social_text
 from rewrite_tools import render_rewrite_tab
 from connection_tools import diagnose_url, ipv4_get
+from reset_tools import reset_article_state
 from download_tools import dated_filename, download_timestamp, social_download_bundle
 
 
@@ -1104,7 +1105,7 @@ def render_social_tab(
     st.write(" ".join(carousel.get("hashtags", [])))
 
     for number, (key, label) in enumerate(
-        (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok")),
+        (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok"), ("gbp_video", "Googleビジネスプロフィール")),
         start=6,
     ):
         item = plan.get(key, {})
@@ -1156,6 +1157,7 @@ def render_social_tab(
             ("reel_video", "Instagramリール動画"),
             ("youtube_video", "YouTube動画"),
             ("tiktok_video", "TikTok動画"),
+            ("gbp_video", "Googleビジネスプロフィール動画"),
         ):
             item = prompts.get(key, {})
             with st.expander(label, expanded=(key == "reel_video")):
@@ -1557,6 +1559,12 @@ def render_research_to_content_tab(
 st.title("SEOコンテンツ戦略スタジオ")
 st.caption("競合リサーチから記事、SNS投稿文、画像・動画プロンプトまで一つの流れで制作します。")
 
+def reset_for_next_article():
+    reset_article_state(st.session_state)
+
+st.button("次の記事を作成する（入力・結果をリセット）", on_click=reset_for_next_article, key="reset_article_top")
+st.caption("全タブの入力・生成結果をクリアします。必要な結果は先に保存してください。API設定・店舗名・接続方法は残ります。")
+
 with st.sidebar:
     st.header("API設定")
     saved_key = secret_value("GEMINI_API_KEY")
@@ -1598,6 +1606,7 @@ with keyword_tab:
         "対策キーワード",
         placeholder="例：せんげん台 整体",
         label_visibility="collapsed",
+        key="keyword_article_keyword",
     )
     experience_note = st.text_area(
         "あなたの体験談や独自ノウハウのメモ（任意）",
@@ -1607,6 +1616,7 @@ with keyword_tab:
         ),
         height=140,
         help="入力した内容を記事の冒頭と結論に自然に反映します。個人情報は入力しないでください。",
+        key="keyword_article_experience",
     )
     generate = st.button("記事を生成する", type="primary", use_container_width=True)
     
@@ -1729,3 +1739,8 @@ with rewrite_tab:
 
 with social_tab:
     render_social_tab(current_api_key, model)
+
+
+st.divider()
+st.button("次の記事を作成する（入力・結果をリセット）", on_click=reset_for_next_article, key="reset_article_bottom")
+st.caption("必要な記事・SNS素材をダウンロードしてから押してください。API設定・店舗名は残ります。")
