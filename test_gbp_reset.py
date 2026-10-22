@@ -23,6 +23,9 @@ class NewFeatureTests(unittest.TestCase):
             self.assertIn('Googleビジネスプロフィール動画',text)
             self.assertIn('要点4',text)
     def test_reset_keeps_settings_only(self):
-        state={'social_brand_name':'ぽんて','integrated_brand_name':'ぽんて','url_use_ipv4':True,'api_key':'secret','model':'test','keyword_article_keyword':'古い','url_result':{},'seo_work':{},'social_article_upload':b'old','rewrite_result':{},'research_keyword':'前','competitor_result':{}}
+        state={'social_brand_name':'ぽんて','integrated_brand_name':'ぽんて','url_use_ipv4':True,'api_key':'secret','model':'test','keyword_article_keyword':'古い','url_article_url_0':'https://example.com/old','rewrite_url_0':'https://example.com/old','url_result':{},'seo_work':{},'social_article_upload':b'old','rewrite_result':{},'research_keyword':'前','competitor_result':{}}
         reset_article_state(state)
-        self.assertEqual(set(state),{'social_brand_name','integrated_brand_name','url_use_ipv4','api_key','model'})
+        self.assertEqual(set(state),{'social_brand_name','integrated_brand_name','url_use_ipv4','api_key','model','_article_input_epoch'})
+        self.assertEqual(state['_article_input_epoch'], 1)
+        reset_article_state(state)
+        self.assertEqual(state['_article_input_epoch'], 2)

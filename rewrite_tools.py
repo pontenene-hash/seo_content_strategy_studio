@@ -51,7 +51,7 @@ def render_rewrite_tab(api_key, model, fetch_page, call_llm, html_converter, dow
     st.caption("本文を貼り付けるかURLから読み込み、内容を確認してからリライトします。公開中のページは変更しません。")
     mode = st.radio("元記事の入力方法", ["記事を貼り付ける", "URLから読み込む"], horizontal=True, key="rewrite_mode")
     if mode == "URLから読み込む":
-        url = st.text_input("既存記事のURL", placeholder="https://…", key="rewrite_url")
+        url = st.text_input("既存記事のURL", placeholder="https://…", key=f"rewrite_url_{st.session_state.get('_article_input_epoch', 0)}")
         if st.button("URLから本文を読み込む", key="rewrite_fetch"):
             try:
                 with st.spinner("ページ本文を読み込んでいます…"):

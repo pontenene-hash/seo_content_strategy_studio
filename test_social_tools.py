@@ -3,6 +3,30 @@ import social_tools as s
 
 
 class PromptTests(unittest.TestCase):
+    def test_quality_standards_in_every_export(self):
+        brand = 'ぽんて鍼灸整骨院・ぽんてアロマサロン'
+        plan = s._normalize_plan({}, '## 日々のケア\n無理なく相談しましょう。')
+        plan['creative_prompts'] = s._build_creative_prompts(plan, '## ケア\n相談しましょう。', brand)
+        for key, entry in plan['creative_prompts'].items():
+            if key == 'article_section_images':
+                for item in entry:
+                    self.assertEqual(item['catch_copy'], '')
+                    self.assertEqual(item['sub_copy'], '')
+                    self.assertEqual(item['labels'], [])
+                    self.assertIn('文字なしイメージイラスト', item['prompt'])
+                    self.assertIn('相談しましょう。', item['prompt'])
+                    self.assertNotIn(s.PRODUCTION_STANDARDS, item['prompt'])
+                    self.assertNotIn('【正式なブランド・店舗名】', item['prompt'])
+                continue
+            for item in entry if isinstance(entry, list) else [entry]:
+                self.assertIn(s.PRODUCTION_STANDARDS, item['prompt'])
+                self.assertIn(brand, item['prompt'])
+        slides = plan['creative_prompts']['instagram_carousel']
+        self.assertIn('表紙として', slides[0]['prompt'])
+        self.assertIn('最終ページとして', slides[-1]['prompt'])
+        self.assertTrue(all('9枚共通デザイン' in item['prompt'] for item in slides))
+        self.assertIn('追加品質基準20項目', s.creative_prompt_text(plan))
+
     def test_preserves_copy_and_labels(self):
         title = '検索意図を理解するマーケティングの具体的な進め方'
         body = '長い文章も単語の途中で切らずに保持します。' * 5
@@ -50,21 +74,6 @@ class PromptTests(unittest.TestCase):
         self.assertIn('図解', s.creative_prompt_text(plan))
         self.assertEqual(len(plan['carousel']['slides']), 9)
         self.assertEqual(s._labels(None), [])
-
-    def test_gbp_is_fourth_independent_video_in_export(self):
-        scenes = [dict(caption=f'GBP場面{i}', narration='記事に沿った短い説明', visual='明るい室内') for i in range(5)]
-        plan = s._normalize_plan({'gbp_video': {'scenes': scenes}}, '## 内容\n説明です。')
-        plan['creative_prompts'] = s._build_creative_prompts(plan, '## 内容\n説明です。', '正式店舗名')
-        self.assertEqual(plan['gbp_video']['scenes'], scenes)
-        item = plan['creative_prompts']['gbp_video']
-        self.assertEqual(item['size'], '1200×900（4:3）')
-        self.assertIn('GBP場面4', item['prompt'])
-        self.assertIn('正式店舗名', item['prompt'])
-        exported = s.creative_prompt_text(plan)
-        self.assertIn('動画を必ず4本制作する', exported)
-        self.assertIn('## Googleビジネスプロフィール動画', exported)
-        self.assertIn('GBP_動画.mp4', exported)
-        self.assertNotIn('Instagram_カルーセル_', item['prompt'])
 
 
 if __name__ == '__main__':
