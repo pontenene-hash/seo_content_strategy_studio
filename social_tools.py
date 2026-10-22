@@ -1,30 +1,7 @@
 import json
 import re
 
-PRODUCTION_STANDARDS = """
-【画像・動画共通：追加品質基準20項目】
-1. 全体品質：InstagramやWeb広告で使えるプロの販促デザインを目指す。明るく清潔で親しみやすく、一目で内容が伝わる構成。絵・文字・背景・装飾と余白を調整し、情報過多にしない。
-2. イラスト：記事と各場面に合う絵を必ず制作する。立ち絵だけにせず、自然な表情・動作・姿勢・背景・小物・身体の状態・施術や生活シーンで内容を伝える。日本人向けに自然な人物・生活環境・店舗像とし、顔・手・指・身体の形を確認する。
-3. 情報量：タイトルだけで終わらせず、記事にある悩み・原因・対策・メリット・注意点・施術内容・おすすめポイントを短文と図解で伝える。記事にない原因・効果やサービスを作らない。
-4. 配置：テキストとイラストの表示エリアを明確に分ける。図解内のラベルや吹き出しにも専用の空白・カードを設け、人物の顔・身体・重要な絵には重ねない。高コントラストを確保し、タイトルは大きく、サブテキストは約80％を目安にする。読めない小文字で情報を詰め込まない。
-5. 改行：文節と意味のまとまりで改行し、単語・固有名詞・数字と単位を分断しない。『パーソナルトレーニング』は一体で扱い、枠を広げるか配置を調整する。助詞だけが行頭・行末に残る改行を避け、生成後に文字切れ・誤字・不自然な改行を確認する。
-6. 統一感：カルーセル全9枚を1つの作品として設計する。色調・フォント・タッチ・人物デザイン・余白・タイトル位置・テキスト配置・装飾・ブランド像を統一する。図解や人物の構図は各ページの主題に合わせて変える。
-7. 表紙：強いが誇張しないキャッチコピー、明確なテーマ、魅力的な絵、読みやすい文字で『誰のための、どんな内容か』を一目で伝える。
-8. 最終ページ：記事のまとめから、指定された店舗・サービスへの優しいCTAにつなぐ。『こんなお悩みがある方はご相談ください』『無理なく始めてみませんか？』などを内容に合わせる。提供された正式名称・予約方法のみ使用し、未提供の電話番号・URL・営業時間は創作しない。
-9. マーケティング：続きを見たいか、自分の悩みだと感じるか、サービスに興味が持てるか、保存したくなるかを検討する。根拠のない効果保証や強引な広告表現を避ける。
-10. 動画構成：表紙→悩み・問題提起→記事にある原因や背景→解決策・ポイント→提供情報にあるサービス紹介→CTAを基本にする。単なる静止画連結ではなく、文字演出と自然な微動・転換で読みやすいテンポにする。
-11. 冒頭：最初の1〜3秒で自分に関係するテーマだと分かる完成表紙を表示する。表紙自体は5〜6秒程度保持し、キャッチコピーを読む時間を確保する。黒画面や待ち時間を入れない。
-12. テロップ：ナレーション無し。サブテキストは独立した文字レイヤーで1文字ずつタイプライター風に表示する。見出しは最初から読める状態にする。入力中に改行位置を動かさず、読了前に次の場面へ切り替えない。
-13. BGM：明るく穏やか、少しポップで前向きな、健康・美容・リラクゼーション・店舗紹介に合う利用権のあるインストゥルメンタル。主張しすぎない音量で、途中で途切れさせない。
-14. 縦型：Reels・TikTokはスマートフォン用。上下左右に操作UI用の安全余白を設け、顔や重要文字を端に置かない。既存の9枚構成を維持し、読める速さと間延びしないテンポを両立する。
-15. 横型：YouTubeは16:9専用。縦型の単純変換をせず、人物・図解・タイトル・説明テロップを横画面へ独立設計する。左右配置など横幅を生かして余白と重心を整える。
-16. 正式名称：指定された店舗名・サービス名を一字一句正確に使う。勝手に略称・英語・別名称に変えない。提供された店舗情報を優先する。情報がない場合は架空の名称を補わない。
-17. 品質確認：生成後に誤字脱字・漢字・文字化け・文字切れ・単語途中の改行・不自然な日本語・顔・手指・身体・文字と絵の重なり・見切れ・余白・情報量・色・スマートフォン可読性・ブランド名を確認し、問題は修正する。
-18. 三つの専門視点：グラフィックデザイナー、イラストレーター、SNSマーケティング担当者の視点で、一目で伝わるか、魅力、絵と内容の一致、読みやすさ、情報量、広告の強さ、保存・シェア・予約へのつながりを最終確認する。
-19. 工程：元データを理解→伝える内容を整理→デザイン構成→生成→誤字・配置・人物確認→マーケティング確認→修正→再確認→最終版。一度の生成だけで完成扱いにしない。実施していない検品を実施済みと報告しない。
-20. 最重要：記事の文章をただ画像化せず、内容を視覚的に再構成する。本文を読まなくても悩み・原因・解決方法・サービスのメリットが記事の根拠の範囲で分かることを目指す。明るさ、絵の魅力、適切な情報量、文字の読みやすさ、全体バランスを重視する。
-適用範囲：静止画像には画像関連の項目、動画には全共通項目と該当する横型・縦型の項目を適用する。表紙・最終ページの指定は該当するページに適用する。
-"""
+from creative_quality import COMMON_QUALITY, apply_quality_rules
 
 
 MEDIA_FILENAMES = {
@@ -71,7 +48,7 @@ TEXT_LAYOUT_RULES = (
 INFOGRAPHIC_RULES = (
     "画像だけで『何が大切か・なぜか・どう行動するか』が理解できる編集型イラストにする。"
     "人物を飾りとして置くだけでなく、記事の具体的な要点を、吹き出し・短いラベル・矢印・比較・手順・チェックリストで視覚化する。"
-    "図解のラベルは専用の空白や説明カードに配置し、テキストと絵の表示エリアを明確に分ける。人物や重要な絵に重ねず、対象との対応関係を明確にする。"
+    "イラスト内への文字配置を許可する。背景に説明カードや十分な余白を設け、文字と対象を近づけて対応関係を明確にする。"
     "1画像1主題、強い見出し1つ、具体的な要点2〜3つを基本とし、情報源が少ない場合は水増ししない。"
     "本文を丸ごと貼らず、見出し→図解→具体策の順で視線を誘導する。画像内の同じ文章の重複や装飾だけのラベルは禁止。"
     "読者自身の悩みと得られる理解を結び付け、明るい表情や具体的な行動場面で共感を生む。誇張、恐怖訴求、根拠のない効果保証は禁止。"
@@ -81,7 +58,7 @@ INFOGRAPHIC_RULES = (
 )
 
 PROFESSIONAL_REVIEW = (
-    "納品前に、プロのグラフィックデザイナー・イラストレーター・SNSマーケティング担当者の3つの視点で100％表示とスマートフォン縮小表示の両方を最終検品する。"
+    "納品前に、プロのイラストレーター兼アートディレクターとして100％表示とスマートフォン縮小表示の両方で最終検品する。"
     "検品項目は、誤字、文字化け、単語途中の改行、行頭禁則、各行の長さ、文字の中央揃え、行間、余白、視覚的重心、"
     "文字同士の衝突、顔や重要な動作の遮蔽、記事との一致、図解の対応関係、人物の顔・手指・身体、小物、背景、色、コントラスト、媒体サイズである。"
     "1項目でも不合格なら内部でレイアウトまたはイラストを修正して再検品し、すべて合格した完成版だけを出力する。"
@@ -222,6 +199,17 @@ def _normalize_plan(data: dict, article: str) -> dict:
         {key: value for key, value in scene.items() if key != "source_image"}
         for scene in scenes if isinstance(scene, dict)
     ]
+    gbp_video = data.setdefault("gbp_video", {})
+    if not isinstance(gbp_video, dict):
+        gbp_video = data["gbp_video"] = {}
+    gbp_scenes = gbp_video.get("scenes")
+    if not isinstance(gbp_scenes, list) or len(gbp_scenes) != 5:
+        # 旧形式のデータでも記事由来の5場面を出力できるようにする。
+        gbp_scenes = [video_scenes[index] for index in (0, 1, 3, 6, 8)]
+    gbp_video["scenes"] = [
+        {key: value for key, value in scene.items() if key != "source_image"}
+        for scene in gbp_scenes if isinstance(scene, dict)
+    ]
     return data
 
 
@@ -240,7 +228,7 @@ def _image_prompt_item(
     visual_direction = _display_text(scene or f"{title}。{body}")
     labels = _labels(labels)
     prompt = (
-        f"{PRODUCTION_STANDARDS}\n{INFOGRAPHIC_RULES}"
+        f"{INFOGRAPHIC_RULES}"
         f"{IMAGE_QUALITY} 出力サイズは{size}。テーマは『{visual_direction}』。"
         f"レイアウトは{layout}。見出し『{title}』"
         + (f"、補足『{body}』" if body else "")
@@ -330,7 +318,7 @@ def _video_prompt_item(
         "文章が長い場合は文・文節単位のカードに分け、前の文を読める時間を確保してから次をタイプ表示する。"
     )
     prompt = (
-        f"{PRODUCTION_STANDARDS}\n{INFOGRAPHIC_RULES}"
+        f"{INFOGRAPHIC_RULES}"
         "あなたは読者心理と視聴維持を熟知したプロのマーケティングコンサルタントであり、"
         "プロのイラストレーター兼映像ディレクターである。情報の優先順位と視線誘導を設計した、求心力のある高品質なイラスト動画を制作する。"
         f"動画全体で伝える記事の要約は『{_display_text(article_summary)}』。"
@@ -375,61 +363,35 @@ def _video_prompt_item(
     }
 
 
-def _gbp_video_prompt_item(plan: dict, brand_name: str) -> dict:
-    item = plan.get("gbp_video")
-    scenes = item.get("scenes", []) if isinstance(item, dict) else []
-    scenes = scenes if isinstance(scenes, list) else []
-    script = "\n".join(
-        f"{i * 6}〜{(i + 1) * 6}秒：見出し『{scene.get('caption', '')}』。"
-        f"タイプ表示する補足『{scene.get('narration', '')}』。イラスト：{scene.get('visual', '')}"
-        for i, scene in enumerate(scenes) if isinstance(scene, dict)
+def _gbp_video_prompt_item(plan_item: dict, brand_name: str, article_summary: str) -> dict:
+    scene_lines = []
+    for index, scene in enumerate(plan_item.get("scenes", []), 1):
+        scene_lines.append(
+            f"場面{index}：見出し『{_display_text(scene.get('caption', ''))}』、"
+            f"タイプ表示する補足『{_display_text(scene.get('narration', ''))}』。"
+            f"イラスト・動作・小物：{_display_text(scene.get('visual', ''))}。"
+        )
+    brand_rule = f"正式名称『{brand_name}』を変更せず、必要な場面だけ控えめに表示する。" if brand_name else "店舗名が記事にない場合は創作しない。"
+    prompt = (
+        "この指示でGoogleビジネスプロフィール（GBP）掲載用の動画を、他の3本と別に1本制作する。"
+        "完成記事の要約：" + _display_text(article_summary) + "。"
+        "出力は1200×900、4:3の横型、約30秒、MP4。YouTubeの16:9動画や縦型リールを転用せず、GBP用の独立した構図で制作する。"
+        "以下の5場面を順番に、表紙→読者の悩み→記事由来の要点・具体策→注意点→穏やかな行動案内として構成する。"
+        "1場面約5〜7秒を目安に、読める時間を優先する。" + " ".join(scene_lines) +
+        "明るく清潔感のある日本向けのイラストを用い、記事の内容が人物の表情、動作、環境、小物で伝わるようにする。"
+        "人物や重要な要素を文字で隠さず、四辺の余白とスマートフォンで読める大きさを確保する。"
+        "見出しは静止表示、補足テロップだけを編集可能な文字レイヤーで1文字ずつタイプ入力風にする。"
+        "全文を最初から表示せず、改行を先に確定し、単語や助詞を途中で分断しない。"
+        "打ち終わりに読む時間を確保し、文字が増えても位置やサイズを動かさない。"
+        "音声ナレーションは使わず、明るく穏やかな控えめのBGMを入れる。"
+        "記事にない数値、効能、口コミ、サービス、所在地、予約先を作らない。"
+        + brand_rule + "誤字、文字切れ、不自然な手指、文字とイラストの重なり、見切れを検品し修正して完成版を出力する。"
     )
     return {
-        "size": "1200×900（4:3）", "duration": "30秒以内（5シーン・各6秒、転換込み）",
-        "output_filename": MEDIA_FILENAMES["gbp_video"],
-        "prompt": (
-            f"{PRODUCTION_STANDARDS}\n{TEXT_LAYOUT_RULES}\n"
-            "Googleビジネスプロフィール用の動画を独立制作する。1200×900・4:3、30fps、MP4、75MB以下。"
-            "全体は転換込みで必ず30秒以内。5シーン各6秒で記事の主要内容を要約する。尺を延長せず文章量を減らす。"
-            "表紙→悩み・原因→解決策→サービスの特徴→優しい相談CTA。提供されていない店舗情報や効果を創作しない。"
-            "明るく清潔で魅力ある日本人向けイラストを各内容に合わせて新規制作する。縦型動画の切り抜きや引き伸ばしは禁止。"
-            "上部に短い見出し、中央に人物・生活や施術シーン、下部に短い補足。四辺8％は安全余白。顔・手と文字を重ねない。"
-            "日本語の太めゴシック。見出し64〜80px、補足は約80％。全文の意味単位の改行と配置を先に決定し、単語途中で改行しない。"
-            "見出しは静止表示。補足は編集可能な文字レイヤーで1文字0.06秒のタイプライター表示。全文表示後2秒以上保持する。"
-            "0秒から明るい完成表紙。黒画面なし。ナレーション・会話音声なし。明るく穏やかな利用許諾のあるBGMを控えめに入れる。"
-            "画面転換は0.3秒で各6秒の中に含める。イラストには緩やかなパンや自然な微動を付ける。"
-            "最後は店舗への相談・予約を自然に案内する。URLや店舗名は提供された正式表記のみ。YouTube概要欄やInstagramへの誘導はしない。"
-            f"正式なブランド名：{brand_name or '未指定。記事内の正式名称だけを使用'}。\n場面構成：\n{script}\n"
-            "検品では誤字・文字切れ・改行・顔・手指・文字の重なり・明るさ・読み切れる速度を確認し、問題を修正する。"
-            "動画長30秒以内・75MB以下・解像度720p以上を実ファイルでも確認する。"
-            f"{PROFESSIONAL_REVIEW}"
-        ),
-    }
-
-
-def _article_image_prompt_item(section: dict, index: int) -> dict:
-    heading = _display_text(section.get("heading", ""))
-    context = _display_text(section.get("summary", ""))
-    layout = "横長16:9。記事の主題を表す一場面を中心に、人物・背景・小物を自然に配置し、余白と奥行きを整える"
-    return {
-        "size": "1200×675", "catch_copy": "", "sub_copy": "", "labels": [],
-        "font_spec": "文字なし", "layout": layout,
-        "output_filename": f"ブログ_{section.get('level', 'H2')}_{index:02d}_{_safe_filename_part(heading)}.png",
-        "section": index, "heading_level": section.get("level", "H2"), "heading": heading,
-        "prompt": (
-            "【記事に添える文字なしイメージイラスト】\n"
-            f"制作資料の見出し：{heading}\n制作資料の本文：{context}\n"
-            "上記は内容を理解するための資料であり、画像内に書き写さない。"
-            "記事のテーマや読者の気持ちを想像できる、内容に沿った具体的な一場面を描く。"
-            "表情・動作・姿勢・生活環境・背景・小物で主題を伝える。施術や運動の場面は記事に関連する場合だけ使う。"
-            "見出し、要約文、細かい説明文、箇条書き、数字ラベル、吹き出し、説明カード、予約CTA、店舗名、ロゴ、透かしは描かない。"
-            "文字用の帯や空欄カードも設けない。文章をまとめた図解ポスターではなく、記事を読み進めやすくする挿絵にする。"
-            f"{IMAGE_QUALITY} 出力サイズ1200×675。{layout}。"
-            "記事内の画像全体で明るさ・色調・タッチを統一し、各セクションで場面・視点・仕草を変える。"
-            "記事にない効果や施術結果を連想させる誇張したビフォーアフターは描かない。"
-            "制作工程は記事理解→場面設計→生成→記事との一致・顔・手指・身体・見切れ・余白・色調・文字混入を確認→修正→再確認。"
-            "デザイナー・イラストレーター・マーケティング担当者の視点で魅力と自然さを確認する。実施していない確認を実施済みと報告しない。"
-        ),
+        "size": "1200×900（4:3）", "duration": "約30秒",
+        "layout": "GBP専用の4:3横型。5場面で記事の要点を視覚的に要約する",
+        "font_spec": "読みやすい日本語ゴシック体。見出しと補足を明確に分ける",
+        "output_filename": MEDIA_FILENAMES["gbp_video"], "prompt": prompt,
     }
 
 
@@ -455,29 +417,19 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
         "reel_video": _video_prompt_item(reel, "1080×1920", "約55〜60秒", MEDIA_FILENAMES["reel_video"], True, brand_name, article_summary),
         "youtube_video": _video_prompt_item(youtube, "1920×1080", "約55〜60秒", MEDIA_FILENAMES["youtube_video"], False, brand_name, article_summary),
         "tiktok_video": _video_prompt_item(tiktok, "1080×1920", "約55〜60秒", MEDIA_FILENAMES["tiktok_video"], True, brand_name, article_summary),
+        "gbp_video": _gbp_video_prompt_item(plan.get("gbp_video", {}), brand_name, article_summary),
     }
-    prompts["gbp_video"] = _gbp_video_prompt_item(plan, brand_name)
     prompts["instagram_carousel"] = []
     for index, slide in enumerate(plan.get("carousel", {}).get("slides", [])[:9], 1):
         item = _image_prompt_item(
             slide.get("title", ""), slide.get("body", ""), "1080×1350",
             "上部に主張が伝わる見出し、中央に記事の要点を伝える図解イラストと2〜3個のラベル、下部に具体策や注意点。割合は内容に合わせて調整する",
-            "太めゴシック。見出し64〜80px、サブテキストは見出しサイズの約80％（目安51〜64px）。ラベルも小さくしすぎずスマートフォンで判読できる大きさ。意味のまとまりを優先",
+            "太めゴシック。見出し64〜80px、本文40〜52px、図解ラベル36〜44pxを目安に、スマートフォン縮小表示で判読できる大きさ。行数より意味のまとまりを優先",
             f"Instagram_カルーセル_{index:02d}.png",
             slide.get("visual", ""),
             slide.get("labels", []),
         )
         item["slide"] = index
-        item["prompt"] += (
-            "\n【9枚共通デザイン】白・アイボリーを基調、ミントと温かいコーラルをアクセントにする（提供ブランド指定があれば優先）。"
-            "太めの日本語ゴシック、同じ線と陰影のタッチ、同じ人物の顔・髪・服装設定、上部タイトル位置、左右余白、説明カードの形を統一する。"
-            "1枚目で確定したスタイルを残り8枚に引き継ぐ。内容に合わせた構図の変化は中央のイラスト・図解で付ける。"
-            f"この画像は全9枚中の{index}枚目。"
-        )
-        if index == 1:
-            item["prompt"] += "表紙として、誰のどんな悩みを扱うかが一目で分かるキャッチコピーと主役の絵を最優先する。"
-        elif index == 9:
-            item["prompt"] += "最終ページとして要点をまとめ、提供された正式な店舗・サービス名と優しい相談・予約CTAを読みやすく配置する。未提供の店舗情報は補わない。"
         prompts["instagram_carousel"].append(item)
     sections = _article_image_sections(article, maximum=6) or [{
         "level": "H2", "heading": "記事のポイント",
@@ -485,39 +437,27 @@ def _build_creative_prompts(plan: dict, article: str, brand_name: str) -> dict:
     }]
     prompts["article_section_images"] = []
     for index, section in enumerate(sections, 1):
-        item = _article_image_prompt_item(section, index)
+        item = _image_prompt_item(
+            section.get("heading", ""), section.get("summary", ""), "1200×675", horizontal,
+            "太めゴシック。見出し56〜72px、補足は見出しの約80％、1行15〜18文字以内、行間1.25〜1.4倍",
+            f"ブログ_{section.get('level', 'H2')}_{index:02d}_{_safe_filename_part(section.get('heading', ''))}.png",
+            f"記事の{section.get('level', 'H2')}『{section.get('heading', '')}』。要点：{section.get('summary', '')}",
+        )
+        item.update({"section": index, "heading_level": section.get("level", "H2"), "heading": section.get("heading", "")})
         prompts["article_section_images"].append(item)
-    brand_rule = (
-        f"\n【正式なブランド・店舗名】{str(brand_name).strip()}。この表記をそのまま使用し、略称・英語・別名称へ変更しない。"
-        if str(brand_name or "").strip() else
-        "\n【店舗情報】記事に明示された正式名称・連絡方法だけを使用する。未提供の場合は一般的な相談CTAとし、架空の店舗情報を加えない。"
-    )
-    for key, entry in prompts.items():
-        if key == "article_section_images":
-            continue
-        for item in (entry if isinstance(entry, list) else [entry]):
-            item["prompt"] += brand_rule
-    return prompts
+    return apply_quality_rules(prompts, brand_name)
 
 
 def _validate_social_plan(data: dict) -> None:
-    required = ("x_posts", "threads", "facebook", "gbp", "carousel", "reel", "youtube", "tiktok", "creative_prompts")
+    required = ("x_posts", "threads", "facebook", "gbp", "carousel", "reel", "youtube", "tiktok", "gbp_video", "creative_prompts")
     missing = [key for key in required if key not in data]
     if missing:
         raise ValueError(f"SNS構成に必要な項目が不足しています：{', '.join(missing)}")
     if len(data.get("carousel", {}).get("slides", [])) != 9:
         raise ValueError("カルーセル構成が9枚ではありません。")
-    for key in ("reel", "youtube", "tiktok"):
+    for key in ("reel", "youtube", "tiktok", "gbp_video"):
         if not data.get(key, {}).get("scenes"):
             raise ValueError(f"{key}の動画構成がありません。")
-    gbp_item = data.get("gbp_video")
-    gbp_scenes = gbp_item.get("scenes", []) if isinstance(gbp_item, dict) else []
-    if not isinstance(gbp_scenes, list) or len(gbp_scenes) != 5 or any(
-        not isinstance(scene, dict) or not scene.get("caption") or not scene.get("visual")
-        or not isinstance(scene.get("narration"), str) or not scene["narration"] or len(scene["narration"]) > 40
-        for scene in gbp_scenes
-    ):
-        raise ValueError("GBP動画は5シーン、各補足40文字以内で作成してください。")
     prompts = data.get("creative_prompts", {})
     required_prompts = (
         "x_image", "facebook_eyecatch", "gbp_image", "threads_image", "reel_cover",
@@ -533,11 +473,9 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 あなたは、読者心理・購買行動・媒体特性を熟知したプロのマーケティングコンサルタントであり、
 広告・出版分野で経験豊富なプロのイラストレーター兼映像ディレクターです。
 以下の完成記事だけを情報源として、各SNS向けコンテンツをJSONで作成してください。
-
-共通制作基準：
-{PRODUCTION_STANDARDS}
-正式なブランド・店舗名：{str(brand_name or '').strip() or '未指定。記事内の提供情報のみ使う'}
-名称を勝手に略したり翻訳しない。カルーセル9枚目と動画の最後に、記事にあるサービス紹介と優しいCTAを組み込む。未提供の店舗情報・予約方法は作らない。
+指定された正式名称：{brand_name or '記事の正式表記を使う'}
+次の品質基準も構成・場面指定へ反映してください：
+{COMMON_QUALITY}
 
 完成記事：
 ---
@@ -559,7 +497,7 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 - 各スライドにlabels配列を追加し、記事由来の具体的な要点・手順・注意点を2〜3個、各8〜22文字程度の完結した意味単位で入れる。根拠が少なければ無理に増やさない
 - title、body、labelsの合計は80〜140文字程度を目安に、表紙だけは短くする。文字数に合わせて語句を切らず、自然な日本語にする
 - labelsはbodyの単なる繰り返しではなく、理解や行動に役立つ具体的な情報にする。内容に合う吹き出し・比較カード・矢印・手順・チェックリストの配置をvisualに記す
-- 文字はイラストと明確に区切った空白・説明カード・吹き出し内に配置する。人物の顔・身体や重要な動作を隠さず、ラベルと対象の対応を明確にする。画像だけで記事の要点が理解できるようにする
+- イラスト内に文字を入れてよい。人物の顔・手や重要な動作を隠さず、ラベルと対象の対応を明確にする。画像だけで記事の要点が理解できるようにする
 - 記事の結論と読者の悩みをつなぐ具体的な見出しで関心を引き、誇張や恐怖ではなく納得感と前向きな行動で訴求する
 - カルーセル各枚のvisualは、そのスライドのtitleとbodyの意味を一目で理解できる具体的な一場面にする
 - 各スライドで同じ人物の同じポーズや同じ背景を繰り返さず、表情・動作・視点・背景・小物を内容に合わせて変える
@@ -568,6 +506,8 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 - 縦型動画は1枚目を表紙、2〜8枚目を記事の解説、9枚目をまとめ・自然な行動喚起とする
 - YouTubeは1920×1080・16:9専用の約1分動画。記事全体を要約する独立した5〜7シーンをyoutube.scenesに必ず作成する。表紙→悩み・結論→主要ポイント・具体策・注意点→まとめの流れで、場面数や配置をカルーセルへ無理に合わせない
 - YouTubeのvisualには横長専用の構図を指定する。人物と図解の左右配置、比較2列、横方向の手順など内容に合う表現を選び、見出しと下部サブテキストの余白を確保する
+- GBP動画はYouTubeや縦型動画と別に、1200×900・4:3、約30秒の独立した5シーンをgbp_video.scenesへ作成する。表紙→悩み→要点・具体策→注意点→自然な行動案内とし、記事の内容を過不足なく要約する
+- GBP動画のcaptionは短い見出し、narrationは音声を使わずタイプ表示する記事由来の短い補足、visualは4:3横型に合う具体的なイラスト場面とする。店舗情報や効果を創作しない
 - 全動画のサブテキストは編集可能な独立レイヤーで1文字ずつタイプ入力風に表示する。見出しと図解ラベルは静止表示。全文の改行位置を先に固定し、入力中のレイアウト移動や文字の二重表示を防ぐ
 - 各画像は約6秒を目安に表示し、情報量に応じて延長して本文と図解ラベルを読める時間を確保する
 - 縦型動画の動きはカルーセル画像への緩やかなズーム、パン、光、人物・小物の自然な微動を中心とする。YouTubeは横長用に新規制作した構図へ同様の控えめな動きを付ける
@@ -582,7 +522,6 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
 - 画面テキストは日本語の文節と意味のまとまりで自然に改行できる長さにする。単語途中の分割、助詞・句読点の行頭、1文字だけの行を避ける
 - 改行後は各行の見た目の長さが近くなり、中央揃えで視覚的な重心が偏らない短文にする
 - visualは人物、表情、動作、背景、小物が分かる具体的な日本語の場面説明
-- GBP動画は1200×900・4:3専用、全体30秒以内、独立した5シーン各6秒（転換含む）。表紙→悩み・原因→対策→サービス→CTAで記事の重要点を要約。各caption20文字以内、narrationは自然な短文で40文字以内、visualに専用構図を指定する。記事にサービス情報がなければ実用ポイントとまとめで代替し、捏造しない
 - JSONを途中で省略せず、次の形式以外は出力しない
 
 {{
@@ -598,12 +537,12 @@ def generate_social_plan(client, model: str, article: str, call_llm, brand_name:
   "carousel": {{"caption": "Instagramキャプション", "hashtags": ["#タグ"], "slides": [{{"title": "短い見出し", "body": "具体的な説明を40〜60文字程度", "labels": ["記事由来の具体策", "記事由来の注意点"], "visual": "図解形式・人物・各ラベルの対応先を具体的に指定"}}]}},
   "reel": {{"caption": "リール投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}},
   "youtube": {{"title": "タイトル", "description": "概要欄", "hashtags": ["#タグ"], "thumbnail_title": "サムネイル見出し", "thumbnail_body": "短い補足", "scenes": [{{"caption": "短い見出し", "narration": "タイプ表示する具体的なサブテキスト", "visual": "横長専用の構図と人物・図解・余白の配置", "labels": ["記事由来の図解ラベル"]}}]}},
-  "gbp_video": {{"title": "GBP動画タイトル", "scenes": [{{"caption": "短い見出し", "narration": "40文字以内の補足", "visual": "4:3専用の明るい場面"}}]}},
-  "tiktok": {{"caption": "投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}}
+  "tiktok": {{"caption": "投稿文", "hashtags": ["#タグ"], "cover_title": "表紙見出し", "cover_body": "短い補足", "scenes": []}},
+  "gbp_video": {{"title": "GBP動画のタイトル", "caption": "GBP動画の短い紹介文", "scenes": [{{"caption": "短い見出し", "narration": "記事から要約した短いテロップ", "visual": "4:3横型の具体的な場面"}}]}}
 }}"""
     last_error = None
     for attempt in range(2):
-        retry = "" if not attempt else f"\n前回の検証エラー：{last_error}。指定形式・GBP5シーンと文字数を確認し、最後まで有効なJSONで出力してください。"
+        retry = "" if not attempt else "\n前回はJSONが不完全でした。文章量を調整し、必ず最後まで有効なJSONで出力してください。"
         raw = call_llm(
             client, model, prompt + retry, 16_000,
             response_mime_type="application/json", temperature=0.35,
@@ -631,13 +570,9 @@ def social_text(plan: dict) -> str:
         parts.append(f"\n\n{label}投稿\n{item.get('text', '')}\n{_hashtags(item.get('hashtags'))}")
     carousel = plan.get("carousel", {})
     parts.append(f"\n\nInstagram投稿\n{carousel.get('caption', '')}\n{_hashtags(carousel.get('hashtags'))}")
-    for index, slide in enumerate(carousel.get("slides", []), 1):
-        parts.append(f"\n【カルーセル{index}枚目】\n{slide.get('title', '')}\n{slide.get('body', '')}")
     for key, label in (("reel", "Instagramリール"), ("youtube", "YouTube"), ("tiktok", "TikTok"), ("gbp_video", "Googleビジネスプロフィール動画")):
         item = plan.get(key, {})
         parts.append(f"\n\n{label}\n{item.get('title', '')}\n{item.get('caption', item.get('description', ''))}\n{_hashtags(item.get('hashtags'))}")
-        for index, scene in enumerate(item.get("scenes", []), 1):
-            parts.append(f"\n【シーン{index}】\n{scene.get('caption', '')}\n{scene.get('narration', '')}")
     return "\n".join(parts).strip()
 
 
@@ -656,7 +591,11 @@ def creative_prompt_text(plan: dict) -> str:
         ("tiktok_video", "TikTok動画"),
         ("gbp_video", "Googleビジネスプロフィール動画"),
     )
-    parts = ["# 画像・動画制作用プロンプト"]
+    parts = [
+        "# 画像・動画制作用プロンプト",
+        "\n\n## 制作対象の確認\n動画を必ず4本制作する：Instagramリール、YouTube、TikTok、Googleビジネスプロフィール（GBP）。"
+        "GBPは他の動画とは別の4:3・約30秒の完成動画とし、省略しない。各動画の専用指示に従って制作する。",
+    ]
     for key, label in labels:
         item = prompts.get(key, {})
         parts.append(
@@ -680,7 +619,7 @@ def creative_prompt_text(plan: dict) -> str:
         parts.append(
             f"\n\n### セクション{item.get('section', '')}｜{item.get('heading_level', '')}：{item.get('heading', '')}\n"
             f"サイズ：{item.get('size', '')}\n推奨保存ファイル名：{item.get('output_filename', '')}\n"
-            f"画像内テキスト：なし（記事に沿ったイメージイラスト）\n"
-            f"レイアウト：{item.get('layout', '')}\n\n{item.get('prompt', '')}"
+            f"画像内見出し：{item.get('catch_copy', '')}\n画像内補足：{item.get('sub_copy', '')}\n"
+            f"レイアウト：{item.get('layout', '')}\nフォント指定：{item.get('font_spec', '')}\n\n{item.get('prompt', '')}"
         )
     return "".join(parts).strip()
