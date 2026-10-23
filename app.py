@@ -1,11 +1,10 @@
-import base64
 import ipaddress
+import itertools
 import json
 import os
 import re
 import socket
 import time
-from html import escape
 from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -30,6 +29,7 @@ from download_tools import dated_filename, download_timestamp, social_download_b
 
 
 st.set_page_config(page_title="SEO記事自動生成", page_icon="✍️", layout="centered")
+_download_sequence = itertools.count()
 
 
 def safe_download_button(
@@ -39,29 +39,16 @@ def safe_download_button(
     mime: str = "application/octet-stream",
     timestamp: str | None = None,
 ) -> None:
-    """iPhoneでも元のアプリ画面を残したまま保存画面を開く。"""
+    """ページを移動せず、現在の生成結果をそのまま保存する。"""
     payload = data.encode("utf-8-sig") if isinstance(data, str) else data
-    encoded = base64.b64encode(payload).decode("ascii")
-    safe_label = escape(label)
-    safe_file_name = escape(dated_filename(file_name, timestamp), quote=True)
-    safe_mime = escape(mime, quote=True)
-    st.markdown(
-        f"""
-        <a href="data:{safe_mime};base64,{encoded}"
-           download="{safe_file_name}"
-           target="_blank"
-           rel="noopener noreferrer"
-           style="display:block;width:100%;box-sizing:border-box;padding:.55rem .75rem;
-                  border:1px solid rgba(49,51,63,.2);border-radius:.5rem;
-                  background:#fff;color:#31333f;text-align:center;text-decoration:none;
-                  font-weight:400;line-height:1.6;">
-          {safe_label}
-        </a>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        "iPhoneでは保存画面を新しいタブで開きます。保存後にそのタブを閉じると、元の画面へ戻れます。"
+    st.download_button(
+        label,
+        data=payload,
+        file_name=dated_filename(file_name, timestamp),
+        mime=mime,
+        key=f"download_{next(_download_sequence)}",
+        on_click="ignore",
+        use_container_width=True,
     )
 
 
