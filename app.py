@@ -5,6 +5,7 @@ import os
 import re
 import socket
 import time
+from html import escape
 from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -736,6 +737,23 @@ def generate_url_parts(client, model, work, progress) -> None:
     progress.progress(100, text="紹介記事の生成が完了しました。")
 
 
+def restore_finished_article(work: dict | None, result_key: str, model: str) -> None:
+    """全見出しが保存済みなら、APIを呼ばずに完成記事とHTMLを復元する。"""
+    if not work or result_key in st.session_state:
+        return
+    targets = work.get("target_outlines") or []
+    if not targets or len(work.get("article_parts", [])) != len(targets):
+        return
+    try:
+        progress = st.progress(99, text="保存済みの本文から完成結果を復元しています…")
+        if result_key == "seo_result":
+            generate_article_parts(None, model, work, progress)
+        else:
+            generate_url_parts(None, model, work, progress)
+    except Exception as exc:
+        display_error(exc)
+
+
 def render_url_tab(current_api_key: Optional[str], model: str) -> None:
     st.subheader("URLから紹介記事を作成")
     st.caption("紹介したいページを読み込み、検索意図・構成案・本文を自動生成します。")
@@ -845,6 +863,7 @@ def render_url_tab(current_api_key: Optional[str], model: str) -> None:
                 client.close()
 
     work = st.session_state.get("url_work")
+    restore_finished_article(work, "url_result", model)
     if work and "url_result" not in st.session_state:
         st.divider()
         st.caption(f"途中保存：{work['url']}")
@@ -1463,6 +1482,7 @@ def render_research_to_content_tab(
             client.close()
 
     work = st.session_state.get("seo_work")
+    restore_finished_article(work, "seo_result", model)
     if work and "seo_result" not in st.session_state:
         if work.get("article_parts"):
             show_result("ここまで完成した本文", "\n\n".join(work["article_parts"]))
@@ -1657,6 +1677,7 @@ with keyword_tab:
     
     
     work = st.session_state.get("seo_work")
+    restore_finished_article(work, "seo_result", model)
     if work and "seo_result" not in st.session_state:
         st.divider()
         st.caption(f"途中保存：{work['keyword']}")
