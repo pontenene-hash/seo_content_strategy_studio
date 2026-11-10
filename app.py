@@ -24,6 +24,7 @@ from research_tools import (
 )
 from social_tools import creative_prompt_text, generate_social_plan, social_text
 from rewrite_tools import render_rewrite_tab
+from affiliate_tools import render_affiliate_tab
 from connection_tools import diagnose_url, ipv4_get
 from reset_tools import reset_article_state
 from download_tools import dated_filename, download_timestamp, social_download_bundle
@@ -987,13 +988,15 @@ def render_social_tab(
         sources["キーワードSEO記事の完成本文"] = st.session_state["seo_result"]["article"]
     if "url_result" in st.session_state:
         sources["URL紹介記事の完成本文"] = st.session_state["url_result"]["article"]
+    if "affiliate_result" in st.session_state:
+        sources["アフィリエイト記事の完成本文"] = st.session_state["affiliate_result"]["article"]
     sources["記事ファイルをアップロード"] = ""
     sources["記事を直接貼り付ける"] = ""
 
     source_label = st.selectbox("ネタ元の記事", list(sources.keys()), key="social_source")
     article_default = sources[source_label]
     article_key = f"social_article_{source_label}"
-    if source_label == "リライトした完成本文":
+    if source_label in {"リライトした完成本文", "アフィリエイト記事の完成本文"}:
         import hashlib
         article_key += hashlib.sha256(article_default.encode()).hexdigest()[:16]
     if source_label == "記事ファイルをアップロード":
@@ -1598,8 +1601,8 @@ with st.sidebar:
 
 current_api_key = api_key_input.strip() or saved_key
 model = model.strip()
-research_tab, keyword_tab, url_tab, rewrite_tab, social_tab = st.tabs(
-    ["競合分析→一括制作", "キーワードからSEO記事", "URLから紹介記事", "記事リライト", "記事からSNS展開"]
+research_tab, keyword_tab, url_tab, rewrite_tab, social_tab, affiliate_tab = st.tabs(
+    ["競合分析→一括制作", "キーワードからSEO記事", "URLから紹介記事", "記事リライト", "記事からSNS展開", "アフィリエイト記事"]
 )
 
 with research_tab:
@@ -1744,6 +1747,9 @@ with url_tab:
 
 with rewrite_tab:
     render_rewrite_tab(current_api_key, model, fetch_page, call_llm, markdown_to_wordpress_html, safe_download_button)
+
+with affiliate_tab:
+    render_affiliate_tab(current_api_key, model, fetch_page, call_llm, markdown_to_wordpress_html, safe_download_button)
 
 with social_tab:
     render_social_tab(current_api_key, model)
