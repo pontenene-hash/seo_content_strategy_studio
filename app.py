@@ -28,6 +28,7 @@ from affiliate_tools import render_affiliate_tab
 from connection_tools import diagnose_url, ipv4_get
 from reset_tools import reset_article_state
 from download_tools import dated_filename, download_timestamp, social_download_bundle
+from mobile_download_tools import render_mobile_download
 
 
 st.set_page_config(page_title="SEO記事自動生成", page_icon="✍️", layout="centered")
@@ -41,12 +42,16 @@ def safe_download_button(
     mime: str = "application/octet-stream",
     timestamp: str | None = None,
 ) -> None:
-    """ページを移動せず、現在の生成結果をそのまま保存する。"""
+    """別タブで保存し、元のアプリと生成結果を残す。"""
     payload = data.encode("utf-8-sig") if isinstance(data, str) else data
+    filename = dated_filename(file_name, timestamp)
+    if st.session_state.get("download_mode", "別タブで保存（iPhone向け）") == "別タブで保存（iPhone向け）":
+        render_mobile_download(label, payload, filename, mime)
+        return
     st.download_button(
         label,
         data=payload,
-        file_name=dated_filename(file_name, timestamp),
+        file_name=filename,
         mime=mime,
         key=f"download_{next(_download_sequence)}",
         on_click="ignore",
@@ -1598,6 +1603,10 @@ with st.sidebar:
         st.warning("Serper APIキー：未設定（競合検索はデモになります）")
     st.success("無料枠の対象モデルを初期設定しています。")
     st.warning("無料枠では、入力内容がGoogle製品の改善に利用される場合があります。氏名・住所・症例などの個人情報は入力しないでください。")
+    st.divider()
+    st.subheader("ファイルの保存")
+    st.radio("保存方法", ["別タブで保存（iPhone向け）", "従来のダウンロード"], key="download_mode")
+    st.caption("別タブ方式では、保存画面を閉じるか元のタブへ切り替えて作業を続けられます。ポップアップが制限される場合は、許可するか従来方式へ切り替えてください。")
 
 current_api_key = api_key_input.strip() or saved_key
 model = model.strip()
